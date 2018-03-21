@@ -1,7 +1,6 @@
 package httprouter
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	. "net/http"
@@ -98,7 +97,6 @@ func (router *Router) IndexFile(path string) (pathfile string, err error) {
 			return
 		}
 	}
-	fmt.Println(err)
 	err = NewHE(StatusNotFound, "文件没有找到")
 	return
 }

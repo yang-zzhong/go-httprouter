@@ -32,10 +32,9 @@ func (ms *Middlewares) All() []Middleware {
 
 func (ms *Middlewares) Exec(w ResponseWriter, req *Request) bool {
 	for _, middleware := range ms.mdws {
-		if middleware(w, req) {
-			continue
+		if !middleware(w, req) {
+			return false
 		}
-		return false
 	}
 
 	return true
