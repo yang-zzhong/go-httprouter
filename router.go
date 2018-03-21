@@ -7,48 +7,56 @@ import (
 	"os"
 )
 
-type HttpHandler func(ResponseWriter, *Request, map[string]string)
-type Middleware func(ResponseWriter, *Request) bool
-type group func(router *Router)
+type HttpHandler func(ResponseWriter, *Request, *Params)
+type GroupCall func(router *Router)
 
 type Router struct {
 	DocRoot string
 	Indexes []string
 	configs []config
-	mdws    []Middleware
+	ms      *Middlewares
 	prefix  string
 }
 
-func New(docRoot string, indexes []string) *Router {
+type config struct {
+	method string
+	path   string
+	ms     *Middlewares
+	call   HttpHandler
+}
+
+func CreateRouter(docRoot string, indexes []string) *Router {
 	router := new(Router)
 
 	router.DocRoot = docRoot
 	router.Indexes = indexes
 	router.configs = []config{}
-	router.mdws = []Middleware{}
+	router.ms = NewMs()
 	router.prefix = ""
 
 	return router
 }
 
-func (router *Router) ServeHTTP(res ResponseWriter, req *Request) {
+func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
 	for _, conf := range router.configs {
 		matched, params := router.Match(conf.method, conf.path, req)
 		if !matched {
 			continue
 		}
 		if req.Method != conf.method {
-			res.WriteHeader(StatusMethodNotAllowed)
+			w.WriteHeader(StatusMethodNotAllowed)
 			return
 		}
-		conf.Response(res, req, params)
+		if conf.ms.Exec(w, req) {
+			conf.call(w, req, params)
+		}
 		return
 	}
 	if req.Method == MethodGet {
-		router.defaultRoute(res, req)
+		router.defaultRoute(w, req)
 		return
 	}
-	res.WriteHeader(StatusNotFound)
+	w.WriteHeader(StatusNotFound)
 }
 
 func (router *Router) defaultRoute(w ResponseWriter, req *Request) {
@@ -93,8 +101,8 @@ func (router *Router) IndexFile(path string) (pathfile string, err error) {
 	// err = "File Not Found"
 }
 
-func (router *Router) Match(method string, p string, req *Request) (matched bool, params map[string]string) {
-	matched, params = newPath(p).match(req.URL.Path)
+func (router *Router) Match(method string, path string, req *Request) (m bool, p *Params) {
+	m, p = newPath(path).match(req.URL.Path)
 	return
 }
 
@@ -132,14 +140,14 @@ func (router *Router) Connect(path string, h HttpHandler) {
 
 func (router *Router) Handle(method string, path string, h HttpHandler) {
 	router.configs = append(
-		router.configs, config{method, router.prefix + path, router.mdws, h},
+		router.configs, config{method, router.prefix + path, router.ms, h},
 	)
 }
 
-func (router *Router) Group(prefix string, ms []Middleware, grp group) {
-	router.mdws = ms
+func (router *Router) Group(prefix string, ms *Middlewares, grp GroupCall) {
+	router.ms = ms
 	router.prefix = prefix
 	grp(router)
-	router.mdws = []Middleware{}
+	router.ms = NewMs()
 	router.prefix = ""
 }

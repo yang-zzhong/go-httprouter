@@ -18,8 +18,8 @@ func newPath(p string) *path {
 	return pa
 }
 
-func (p *path) match(t string) (matched bool, params map[string]string) {
-	params = make(map[string]string)
+func (p *path) match(t string) (matched bool, params *Params) {
+	params = NewP()
 	pa := Split(([]byte)(p.p), []byte{'/'})
 	lenpa := len(pa)
 	ta := Split(([]byte)(t), []byte{'/'})
@@ -33,7 +33,7 @@ func (p *path) match(t string) (matched bool, params map[string]string) {
 		its := (string)(ta[i])
 		m, _ := regexp.Match("^:", ip)
 		if m {
-			params[ips[1:len(ips)]] = its
+			params.Set(ips[1:len(ips)], its)
 			continue
 		}
 		if ips != its {

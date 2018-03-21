@@ -34,22 +34,22 @@ var withMiddlewareExec bool
 var params bool
 
 func init() {
-	router = New("/tmp", []string{"index.html"})
+	router = CreateRouter("/tmp", []string{"index.html"})
 	helloWorldExec = false
 	apiHelloWorldExec = false
 	middlewareExec = false
 	withMiddlewareExec = false
 	params = false
-	router.Get("/hello-world", func(w ResponseWriter, req *Request, _ map[string]string) {
+	router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *Params) {
 		helloWorldExec = true
 	})
-	router.Group("/api", []Middleware{}, func(router *Router) {
-		router.Get("/hello-world", func(w ResponseWriter, req *Request, _ map[string]string) {
+	router.Group("/api", NewMs(), func(router *Router) {
+		router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *Params) {
 			apiHelloWorldExec = true
 		})
 	})
-	router.Get("/users/:name", func(w ResponseWriter, req *Request, p map[string]string) {
-		if p["name"] == "young" {
+	router.Get("/users/:name", func(w ResponseWriter, req *Request, p *Params) {
+		if p.Get("name") == "young" {
 			params = true
 		}
 	})
@@ -58,8 +58,10 @@ func init() {
 
 		return true
 	}
-	router.Group("", []Middleware{middle1}, func(router *Router) {
-		router.Get("/middleware", func(w ResponseWriter, req *Request, _ map[string]string) {
+	ms := NewMs()
+	ms.Append(middle1)
+	router.Group("", ms, func(router *Router) {
+		router.Get("/middleware", func(w ResponseWriter, req *Request, _ *Params) {
 			withMiddlewareExec = true
 		})
 	})
