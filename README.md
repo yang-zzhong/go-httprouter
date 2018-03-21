@@ -7,16 +7,23 @@
 3. Support restful params
 
 ```go
+import (
+    . "net/http"
+    "io"
+    helper "github.com/yang-zzhong/go-helpers"
+    httprouter "github.com/yang-zzhong/go-httprouter"
+)
+
 router := httprouter.CreateRouter("/path/to/document/root", []string{"index.html"})
 
-var userList HttpHandler = func(w ResponseWriter, req *Request, _ *httprouter.Params) {
+var userList HttpHandler = func(w ResponseWriter, req *Request, _ *helper.P) {
     io.WriteString(w, "user list")
 }
-var user HttpHandler = func(w ResponseWriter, req *Request, _ *httprouter.Params) {
+var user HttpHandler = func(w ResponseWriter, req *Request, _ *helper.P) {
     io.WriteString(w, "user")
 }
 
-var hello HttpHandler = func(w ResponseWriter, req *Request, p *httprouter.Params) {
+var hello HttpHandler = func(w ResponseWriter, req *Request, p *helper.P) {
     io.WriteString(w, "hello " + p.Get("world"))
 }
 
