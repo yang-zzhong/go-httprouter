@@ -1,6 +1,7 @@
 package httprouter
 
 import (
+	helper "github.com/yang-zzhong/go-helpers"
 	. "net/http"
 	"net/url"
 	. "testing"
@@ -42,15 +43,15 @@ func init() {
 	middlewareExec = false
 	withMiddlewareExec = false
 	params = false
-	router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *Params) {
+	router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *helper.P) {
 		helloWorldExec = true
 	})
 	router.Group("/api", NewMs(), func(router *Router) {
-		router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *Params) {
+		router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *helper.P) {
 			apiHelloWorldExec = true
 		})
 	})
-	router.Get("/users/:name", func(w ResponseWriter, req *Request, p *Params) {
+	router.Get("/users/:name", func(w ResponseWriter, req *Request, p *helper.P) {
 		if p.Get("name") == "young" {
 			params = true
 		}
@@ -63,7 +64,7 @@ func init() {
 	ms := NewMs()
 	ms.Append(middle1)
 	router.Group("", ms, func(router *Router) {
-		router.Get("/middleware", func(w ResponseWriter, req *Request, _ *Params) {
+		router.Get("/middleware", func(w ResponseWriter, req *Request, _ *helper.P) {
 			withMiddlewareExec = true
 		})
 	})

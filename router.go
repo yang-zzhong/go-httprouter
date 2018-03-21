@@ -1,13 +1,14 @@
 package httprouter
 
 import (
+	helper "github.com/yang-zzhong/go-helpers"
 	"io"
 	"io/ioutil"
 	. "net/http"
 	"os"
 )
 
-type HttpHandler func(ResponseWriter, *Request, *Params)
+type HttpHandler func(ResponseWriter, *Request, *helper.P)
 type GroupCall func(router *Router)
 
 type Router struct {
@@ -101,7 +102,7 @@ func (router *Router) IndexFile(path string) (pathfile string, err error) {
 	return
 }
 
-func (router *Router) Match(method string, path string, req *Request) (m bool, p *Params) {
+func (router *Router) Match(method string, path string, req *Request) (m bool, p *helper.P) {
 	m, p = newPath(path).match(req.URL.Path)
 	return
 }
