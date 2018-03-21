@@ -6,7 +6,9 @@ import (
 	. "testing"
 )
 
-type RW struct{}
+type RW struct {
+	Code int
+}
 
 func (rw *RW) Header() Header {
 	return Header{}
@@ -19,11 +21,11 @@ func (rw *RW) Write(msg []byte) (size int, err error) {
 }
 
 func (rw *RW) WriteHeader(status int) {
-	status = 200
+	rw.Code = status
 }
 
 func getWriter() ResponseWriter {
-	return new(RW)
+	return &RW{200}
 }
 
 var router *Router
@@ -34,7 +36,7 @@ var withMiddlewareExec bool
 var params bool
 
 func init() {
-	router = CreateRouter("/tmp", []string{"index.html"})
+	router = CreateRouter(".", []string{"index.html"})
 	helloWorldExec = false
 	apiHelloWorldExec = false
 	middlewareExec = false
@@ -78,24 +80,37 @@ func getRequest(method string, path string) *Request {
 }
 
 func TestRoute(t *T) {
-	router.ServeHTTP(getWriter(), getRequest("GET", "/hello-world"))
+	writer := getWriter()
+	router.ServeHTTP(writer, getRequest("GET", "/hello-world"))
 	if !helloWorldExec {
 		t.Error("hello-world fail")
 	}
-	router.ServeHTTP(getWriter(), getRequest("GET", "/api/hello-world"))
+	router.ServeHTTP(writer, getRequest("GET", "/api/hello-world"))
 	if !apiHelloWorldExec {
 		t.Error("api/hello-world fail")
 	}
-	router.ServeHTTP(getWriter(), getRequest("GET", "/middleware"))
+	router.ServeHTTP(writer, getRequest("GET", "/middleware"))
 	if !middlewareExec {
 		t.Error("middleware fail")
 	}
 	if !withMiddlewareExec {
 		t.Error("after middleware fail")
 	}
-	router.ServeHTTP(getWriter(), getRequest("GET", "/users/young"))
+	router.ServeHTTP(writer, getRequest("GET", "/users/young"))
 	if !params {
 		t.Error("params fail")
 	}
-	router.ServeHTTP(getWriter(), getRequest("GET", "/not-found"))
+	router.ServeHTTP(writer, getRequest("GET", "/not-found"))
+	if writer.(*RW).Code != 404 {
+		t.Error("not found fail")
+	}
+
+	router.ServeHTTP(writer, getRequest("POST", "/hello-world"))
+	if writer.(*RW).Code != 405 {
+		t.Error("not allowed fail")
+	}
+	router.ServeHTTP(writer, getRequest("GET", "/README.md"))
+	if writer.(*RW).Code == 404 {
+		t.Error("default router fail")
+	}
 }
