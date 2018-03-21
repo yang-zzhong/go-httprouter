@@ -17,10 +17,10 @@ var user HttpHandler = func(w ResponseWriter, req *Request, _ *httprouter.Params
 }
 
 var hello HttpHandler = func(w ResponseWriter, req *Request, p *httprouter.Params) {
-    io.WriteString(w, "hello" + p["world"])
+    io.WriteString(w, "hello " + p.Get("world"))
 }
 
-router.Group("/api", []Middleware{}, func(router Router) {
+router.Group("/api", NewMs(), func(router Router) {
     router.Get("/users", UsersList)
     router.Get("/users/:name", User)
 })

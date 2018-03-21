@@ -20,6 +20,16 @@ func (ms *Middlewares) Append(md Middleware) {
 	ms.mdws = append(ms.mdws, md)
 }
 
+func (ms *Middlewares) Merge(mms *Middlewares) {
+	for _, m := range mms.All() {
+		ms.Append(m)
+	}
+}
+
+func (ms *Middlewares) All() []Middleware {
+	return ms.mdws
+}
+
 func (ms *Middlewares) Exec(w ResponseWriter, req *Request) bool {
 	for _, middleware := range ms.mdws {
 		if middleware(w, req) {

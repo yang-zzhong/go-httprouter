@@ -1,6 +1,7 @@
 package httprouter
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	. "net/http"
@@ -60,17 +61,17 @@ func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
 }
 
 func (router *Router) defaultRoute(w ResponseWriter, req *Request) {
-	data, err := router.ReadFile(req.URL.Path)
-	if err == nil {
+	data, rerr := router.ReadFile(req.URL.Path)
+	if rerr == nil {
 		io.WriteString(w, (string)(data))
 		return
 	}
-	pathfile, err := router.IndexFile(req.URL.Path)
-	if err != nil {
+	pathfile, ierr := router.IndexFile(req.URL.Path)
+	if ierr != nil {
 		w.WriteHeader(StatusNotFound)
 		return
 	}
-	data, err = router.ReadFile(pathfile)
+	data, err := router.ReadFile(pathfile)
 	if err != nil {
 		w.WriteHeader(StatusNotFound)
 		return
@@ -97,8 +98,9 @@ func (router *Router) IndexFile(path string) (pathfile string, err error) {
 			return
 		}
 	}
+	fmt.Println(err)
+	err = NewHE(StatusNotFound, "文件没有找到")
 	return
-	// err = "File Not Found"
 }
 
 func (router *Router) Match(method string, path string, req *Request) (m bool, p *Params) {
@@ -145,8 +147,8 @@ func (router *Router) Handle(method string, path string, h HttpHandler) {
 }
 
 func (router *Router) Group(prefix string, ms *Middlewares, grp GroupCall) {
-	router.ms = ms
-	router.prefix = prefix
+	router.ms.Merge(ms)
+	router.prefix += prefix
 	grp(router)
 	router.ms = NewMs()
 	router.prefix = ""
