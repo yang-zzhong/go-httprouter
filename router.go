@@ -3,20 +3,26 @@ package httprouter
 import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"io"
-	"io/ioutil"
 	. "net/http"
-	"os"
+	"strconv"
+)
+
+const (
+	Api       = "api"
+	PathFile  = "pathfile"
+	EntryFile = "entryfile"
 )
 
 type HttpHandler func(ResponseWriter, *Request, *helper.P)
 type GroupCall func(router *Router)
 
 type Router struct {
-	DocRoot string
-	Indexes []string
-	configs []config
-	ms      *Middlewares
-	prefix  string
+	Tries     []string
+	DocRoot   string
+	EntryFile string
+	configs   []config
+	ms        *Middlewares
+	prefix    string
 }
 
 type config struct {
@@ -26,11 +32,11 @@ type config struct {
 	call   HttpHandler
 }
 
-func CreateRouter(docRoot string, indexes []string) *Router {
+func NewRouter() *Router {
 	router := new(Router)
-
-	router.DocRoot = docRoot
-	router.Indexes = indexes
+	router.Tries = []string{Api, PathFile, EntryFile}
+	router.DocRoot = "."
+	router.EntryFile = "index.html"
 	router.configs = []config{}
 	router.ms = NewMs()
 	router.prefix = ""
@@ -39,6 +45,37 @@ func CreateRouter(docRoot string, indexes []string) *Router {
 }
 
 func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
+	if req.Method == MethodGet {
+		router.try(w, req)
+		return
+	}
+	if router.tryApi(w, req) {
+		return
+	}
+	w.WriteHeader(StatusNotFound)
+}
+
+func (router *Router) try(w ResponseWriter, req *Request) {
+	for _, try := range router.Tries {
+		switch try {
+		case "api":
+			if router.tryApi(w, req) {
+				return
+			}
+		case "entryfile":
+			if router.tryEntryFile(w, req) {
+				return
+			}
+		case "pathfile":
+			if router.tryPathFile(w, req) {
+				return
+			}
+		}
+	}
+	w.WriteHeader(StatusNotFound)
+}
+
+func (router *Router) tryApi(w ResponseWriter, req *Request) bool {
 	for _, conf := range router.configs {
 		matched, params := router.Match(conf.method, conf.path, req)
 		if !matched {
@@ -46,60 +83,41 @@ func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
 		}
 		if req.Method != conf.method {
 			w.WriteHeader(StatusMethodNotAllowed)
-			return
+			return true
 		}
 		if conf.ms.Exec(w, req) {
 			conf.call(w, req, params)
 		}
-		return
+		return true
 	}
-	if req.Method == MethodGet {
-		router.defaultRoute(w, req)
-		return
-	}
-	w.WriteHeader(StatusNotFound)
+
+	return false
 }
 
-func (router *Router) defaultRoute(w ResponseWriter, req *Request) {
-	data, rerr := router.ReadFile(req.URL.Path)
-	if rerr == nil {
-		io.WriteString(w, (string)(data))
-		return
-	}
-	pathfile, ierr := router.IndexFile(req.URL.Path)
-	if ierr != nil {
-		w.WriteHeader(StatusNotFound)
-		return
-	}
-	data, err := router.ReadFile(pathfile)
-	if err != nil {
-		w.WriteHeader(StatusNotFound)
-		return
-	}
-
-	io.WriteString(w, (string)(data))
+func (router *Router) tryEntryFile(w ResponseWriter, req *Request) bool {
+	return router.tryFile(w, router.EntryFile)
 }
 
-func (router *Router) ReadFile(path string) (data []byte, err error) {
-	pathfile := router.DocRoot + "/" + path
-	if _, err = os.Stat(pathfile); err != nil {
-		data = []byte{}
-		return
-	}
-
-	return ioutil.ReadFile(pathfile)
+func (router *Router) tryPathFile(w ResponseWriter, req *Request) bool {
+	return router.tryFile(w, req.URL.Path)
 }
 
-func (router *Router) IndexFile(path string) (pathfile string, err error) {
-	for _, index := range router.Indexes {
-		pf := router.DocRoot + path + "/" + index
-		if _, err = os.Stat(pf); err == nil {
-			pathfile = pf
-			return
-		}
+func (router *Router) tryFile(w ResponseWriter, file string) bool {
+	fh := newFileHandler(router.DocRoot)
+	available, _ := fh.Available(file)
+	if !available {
+		return false
 	}
-	err = NewHE(StatusNotFound, "文件没有找到")
-	return
+	content, cerr := fh.Contents(file)
+	if cerr != nil {
+		return false
+	}
+	w.Header().Set("Content-Type", fh.ContentType(file))
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	w.WriteHeader(StatusOK)
+
+	io.WriteString(w, (string)(content))
+	return true
 }
 
 func (router *Router) Match(method string, path string, req *Request) (m bool, p *helper.P) {

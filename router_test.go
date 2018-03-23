@@ -37,7 +37,8 @@ var withMiddlewareExec bool
 var params bool
 
 func init() {
-	router = CreateRouter(".", []string{"index.html"})
+	router = NewRouter()
+
 	helloWorldExec = false
 	apiHelloWorldExec = false
 	middlewareExec = false

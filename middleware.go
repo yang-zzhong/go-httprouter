@@ -16,14 +16,17 @@ func NewMs() *Middlewares {
 	return ms
 }
 
-func (ms *Middlewares) Append(md Middleware) {
+func (ms *Middlewares) Append(md Middleware) *Middlewares {
 	ms.mdws = append(ms.mdws, md)
+
+	return ms
 }
 
-func (ms *Middlewares) Merge(mms *Middlewares) {
+func (ms *Middlewares) Merge(mms *Middlewares) *Middlewares {
 	for _, m := range mms.All() {
 		ms.Append(m)
 	}
+	return ms
 }
 
 func (ms *Middlewares) All() []Middleware {
