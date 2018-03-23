@@ -20,6 +20,7 @@ type Router struct {
 	Tries     []string
 	DocRoot   string
 	EntryFile string
+	On404     HttpHandler
 	configs   []config
 	ms        *Middlewares
 	prefix    string
@@ -32,6 +33,11 @@ type config struct {
 	call   HttpHandler
 }
 
+func onNotFound(w ResponseWriter, req *Request, _ *helper.P) {
+	w.WriteHeader(StatusNotFound)
+	io.WriteString(w, "not found")
+}
+
 func NewRouter() *Router {
 	router := new(Router)
 	router.Tries = []string{Api, PathFile, EntryFile}
@@ -40,7 +46,7 @@ func NewRouter() *Router {
 	router.configs = []config{}
 	router.ms = NewMs()
 	router.prefix = ""
-
+	router.On404 = onNotFound
 	return router
 }
 
