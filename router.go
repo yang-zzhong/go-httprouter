@@ -58,7 +58,7 @@ func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
 	if router.tryApi(w, req) {
 		return
 	}
-	w.WriteHeader(StatusNotFound)
+	router.On404(w, req, helper.NewP())
 }
 
 func (router *Router) try(w ResponseWriter, req *Request) {
@@ -78,7 +78,7 @@ func (router *Router) try(w ResponseWriter, req *Request) {
 			}
 		}
 	}
-	w.WriteHeader(StatusNotFound)
+	router.On404(w, req, helper.NewP())
 }
 
 func (router *Router) tryApi(w ResponseWriter, req *Request) bool {
