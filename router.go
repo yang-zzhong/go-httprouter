@@ -14,6 +14,7 @@ type GroupCall func(router *Router)
 type Router struct {
 	DocRoot string
 	Indexes []string
+	On404   HttpHandler
 	configs []config
 	ms      *Middlewares
 	prefix  string
@@ -26,6 +27,11 @@ type config struct {
 	call   HttpHandler
 }
 
+func onNotFound(w ResponseWriter, req *Request, _ *helper.P) {
+	w.WriteHeader(StatusNotFound)
+	io.WriteString(w, "not found")
+}
+
 func CreateRouter(docRoot string, indexes []string) *Router {
 	router := new(Router)
 
@@ -34,7 +40,7 @@ func CreateRouter(docRoot string, indexes []string) *Router {
 	router.configs = []config{}
 	router.ms = NewMs()
 	router.prefix = ""
-
+	router.On404 = onNotFound
 	return router
 }
 
@@ -68,12 +74,12 @@ func (router *Router) defaultRoute(w ResponseWriter, req *Request) {
 	}
 	pathfile, ierr := router.IndexFile(req.URL.Path)
 	if ierr != nil {
-		w.WriteHeader(StatusNotFound)
+		router.On404(w, req, helper.NewP())
 		return
 	}
 	data, err := router.ReadFile(pathfile)
 	if err != nil {
-		w.WriteHeader(StatusNotFound)
+		router.On404(w, req, helper.NewP())
 		return
 	}
 
