@@ -3,7 +3,9 @@ package httprouter
 import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"io"
+	"log"
 	. "net/http"
+	"os"
 	"strconv"
 )
 
@@ -22,6 +24,7 @@ type Router struct {
 	EntryFile string
 	On404     HttpHandler
 	configs   []config
+	Logger    *log.Logger
 	ms        *Middlewares
 	prefix    string
 }
@@ -46,11 +49,13 @@ func NewRouter() *Router {
 	router.configs = []config{}
 	router.ms = NewMs()
 	router.prefix = ""
+	router.Logger = log.New(os.Stdout, "HTTP ROUTER:", log.Lshortfile)
 	router.On404 = onNotFound
 	return router
 }
 
 func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
+	router.Logger.Printf("%v\t%s\t%v\t%v", req.Proto, req.URL.Path, req.Header, req.Body)
 	if req.Method == MethodGet {
 		router.try(w, req)
 		return
@@ -82,18 +87,23 @@ func (router *Router) try(w ResponseWriter, req *Request) {
 }
 
 func (router *Router) tryApi(w ResponseWriter, req *Request) bool {
+	methodNotAllowed := false
 	for _, conf := range router.configs {
 		matched, params := router.Match(conf.method, conf.path, req)
 		if !matched {
 			continue
 		}
 		if req.Method != conf.method {
-			w.WriteHeader(StatusMethodNotAllowed)
-			return true
+			methodNotAllowed = true
+			continue
 		}
 		if conf.ms.Exec(w, req) {
 			conf.call(w, req, params)
 		}
+		return true
+	}
+	if methodNotAllowed {
+		w.WriteHeader(StatusMethodNotAllowed)
 		return true
 	}
 
