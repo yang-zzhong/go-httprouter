@@ -366,7 +366,7 @@ func (fh *fileHandler) pathfile(file string) string {
 
 func (fh *fileHandler) ContentType(file string) string {
 	val, ok := extToContentType[Ext(file)]
-	if !ok {
+	if ok {
 		return val
 	}
 
