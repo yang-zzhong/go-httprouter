@@ -1,10 +1,11 @@
 package httprouter
 
 import (
-	. "net/http"
+	helpers "github.com/yang-zzhong/go-helpers"
+	"net/http"
 )
 
-type Middleware func(ResponseWriter, *Request) bool
+type Middleware func(http.ResponseWriter, *Request, *helpers.P) bool
 
 type Middlewares struct {
 	mdws []Middleware
@@ -33,9 +34,9 @@ func (ms *Middlewares) All() []Middleware {
 	return ms.mdws
 }
 
-func (ms *Middlewares) Exec(w ResponseWriter, req *Request) bool {
+func (ms *Middlewares) Exec(w http.ResponseWriter, req *Request, p *helpers.P) bool {
 	for _, middleware := range ms.mdws {
-		if !middleware(w, req) {
+		if !middleware(w, req, p) {
 			return false
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"io"
 	"log"
-	. "net/http"
+	"net/http"
 	"os"
 	"strconv"
 )
@@ -15,7 +15,7 @@ const (
 	EntryFile = "entryfile"
 )
 
-type HttpHandler func(ResponseWriter, *Request, *helper.P)
+type HttpHandler func(http.ResponseWriter, *Request, *helper.P)
 type GroupCall func(router *Router)
 
 type Router struct {
@@ -36,8 +36,8 @@ type config struct {
 	call   HttpHandler
 }
 
-func onNotFound(w ResponseWriter, req *Request, _ *helper.P) {
-	w.WriteHeader(StatusNotFound)
+func onNotFound(w http.ResponseWriter, req *Request, _ *helper.P) {
+	w.WriteHeader(http.StatusNotFound)
 	io.WriteString(w, "not found")
 }
 
@@ -49,24 +49,24 @@ func NewRouter() *Router {
 	router.configs = []config{}
 	router.ms = NewMs()
 	router.prefix = ""
-	router.Logger = log.New(os.Stdout, "HTTP ROUTER:", log.Lshortfile)
+	router.Logger = log.New(os.Stdout, "Http Router -> ", log.Lshortfile)
 	router.On404 = onNotFound
 	return router
 }
 
-func (router *Router) ServeHTTP(w ResponseWriter, req *Request) {
+func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	router.Logger.Printf("%v\t%s\t%v\t%v", req.Proto, req.URL.Path, req.Header, req.Body)
-	if req.Method == MethodGet {
+	if req.Method == http.MethodGet {
 		router.try(w, req)
 		return
 	}
 	if router.tryApi(w, req) {
 		return
 	}
-	router.On404(w, req, helper.NewP())
+	router.On404(w, &Request{req}, helper.NewP())
 }
 
-func (router *Router) try(w ResponseWriter, req *Request) {
+func (router *Router) try(w http.ResponseWriter, req *http.Request) {
 	for _, try := range router.Tries {
 		switch try {
 		case "api":
@@ -83,10 +83,10 @@ func (router *Router) try(w ResponseWriter, req *Request) {
 			}
 		}
 	}
-	router.On404(w, req, helper.NewP())
+	router.On404(w, &Request{req}, helper.NewP())
 }
 
-func (router *Router) tryApi(w ResponseWriter, req *Request) bool {
+func (router *Router) tryApi(w http.ResponseWriter, req *http.Request) bool {
 	methodNotAllowed := false
 	for _, conf := range router.configs {
 		matched, params := router.Match(conf.method, conf.path, req)
@@ -97,28 +97,28 @@ func (router *Router) tryApi(w ResponseWriter, req *Request) bool {
 			methodNotAllowed = true
 			continue
 		}
-		if conf.ms.Exec(w, req) {
-			conf.call(w, req, params)
+		if conf.ms.Exec(w, &Request{req}, params) {
+			conf.call(w, &Request{req}, params)
 		}
 		return true
 	}
 	if methodNotAllowed {
-		w.WriteHeader(StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return true
 	}
 
 	return false
 }
 
-func (router *Router) tryEntryFile(w ResponseWriter, req *Request) bool {
+func (router *Router) tryEntryFile(w http.ResponseWriter, req *http.Request) bool {
 	return router.tryFile(w, router.EntryFile)
 }
 
-func (router *Router) tryPathFile(w ResponseWriter, req *Request) bool {
+func (router *Router) tryPathFile(w http.ResponseWriter, req *http.Request) bool {
 	return router.tryFile(w, req.URL.Path)
 }
 
-func (router *Router) tryFile(w ResponseWriter, file string) bool {
+func (router *Router) tryFile(w http.ResponseWriter, file string) bool {
 	fh := newFileHandler(router.DocRoot)
 	available, _ := fh.Available(file)
 	if !available {
@@ -130,47 +130,47 @@ func (router *Router) tryFile(w ResponseWriter, file string) bool {
 	}
 	w.Header().Set("Content-Type", fh.ContentType(file))
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
-	w.WriteHeader(StatusOK)
+	w.WriteHeader(http.StatusOK)
 
 	io.WriteString(w, (string)(content))
 	return true
 }
 
-func (router *Router) Match(method string, path string, req *Request) (m bool, p *helper.P) {
+func (router *Router) Match(method string, path string, req *http.Request) (m bool, p *helper.P) {
 	m, p = newPath(path).match(req.URL.Path)
 	return
 }
 
 func (router *Router) Get(path string, h HttpHandler) {
-	router.Handle(MethodGet, path, h)
+	router.Handle(http.MethodGet, path, h)
 }
 
 func (router *Router) Post(path string, h HttpHandler) {
-	router.Handle(MethodPost, path, h)
+	router.Handle(http.MethodPost, path, h)
 }
 
 func (router *Router) Put(path string, h HttpHandler) {
-	router.Handle(MethodPut, path, h)
+	router.Handle(http.MethodPut, path, h)
 }
 
 func (router *Router) Delete(path string, h HttpHandler) {
-	router.Handle(MethodDelete, path, h)
+	router.Handle(http.MethodDelete, path, h)
 }
 
 func (router *Router) Patch(path string, h HttpHandler) {
-	router.Handle(MethodPatch, path, h)
+	router.Handle(http.MethodPatch, path, h)
 }
 
 func (router *Router) Options(path string, h HttpHandler) {
-	router.Handle(MethodOptions, path, h)
+	router.Handle(http.MethodOptions, path, h)
 }
 
 func (router *Router) Trace(path string, h HttpHandler) {
-	router.Handle(MethodTrace, path, h)
+	router.Handle(http.MethodTrace, path, h)
 }
 
 func (router *Router) Connect(path string, h HttpHandler) {
-	router.Handle(MethodConnect, path, h)
+	router.Handle(http.MethodConnect, path, h)
 }
 
 func (router *Router) Handle(method string, path string, h HttpHandler) {

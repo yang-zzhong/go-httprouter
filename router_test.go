@@ -2,7 +2,7 @@ package httprouter
 
 import (
 	helper "github.com/yang-zzhong/go-helpers"
-	. "net/http"
+	"net/http"
 	"net/url"
 	. "testing"
 )
@@ -11,8 +11,8 @@ type RW struct {
 	Code int
 }
 
-func (rw *RW) Header() Header {
-	return Header{}
+func (rw *RW) Header() http.Header {
+	return http.Header{}
 }
 
 func (rw *RW) Write(msg []byte) (size int, err error) {
@@ -25,7 +25,7 @@ func (rw *RW) WriteHeader(status int) {
 	rw.Code = status
 }
 
-func getWriter() ResponseWriter {
+func getWriter() http.ResponseWriter {
 	return &RW{200}
 }
 
@@ -44,20 +44,20 @@ func init() {
 	middlewareExec = false
 	withMiddlewareExec = false
 	params = false
-	router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *helper.P) {
+	router.Get("/hello-world", func(w http.ResponseWriter, req *Request, _ *helper.P) {
 		helloWorldExec = true
 	})
 	router.Group("/api", NewMs(), func(router *Router) {
-		router.Get("/hello-world", func(w ResponseWriter, req *Request, _ *helper.P) {
+		router.Get("/hello-world", func(w http.ResponseWriter, req *Request, _ *helper.P) {
 			apiHelloWorldExec = true
 		})
 	})
-	router.Get("/users/:name", func(w ResponseWriter, req *Request, p *helper.P) {
+	router.Get("/users/:name", func(w http.ResponseWriter, req *Request, p *helper.P) {
 		if p.Get("name") == "young" {
 			params = true
 		}
 	})
-	middle1 := func(w ResponseWriter, req *Request) bool {
+	middle1 := func(w http.ResponseWriter, req *Request, _ *helper.P) bool {
 		middlewareExec = true
 
 		return true
@@ -65,16 +65,16 @@ func init() {
 	ms := NewMs()
 	ms.Append(middle1)
 	router.Group("", ms, func(router *Router) {
-		router.Get("/middleware", func(w ResponseWriter, req *Request, _ *helper.P) {
+		router.Get("/middleware", func(w http.ResponseWriter, req *Request, _ *helper.P) {
 			withMiddlewareExec = true
 		})
 	})
 }
 
-func getRequest(method string, path string) *Request {
+func getRequest(method string, path string) *http.Request {
 	u := new(url.URL)
 	u.Path = path
-	req := new(Request)
+	req := new(http.Request)
 	req.Method = method
 	req.URL = u
 
