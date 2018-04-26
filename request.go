@@ -1,7 +1,9 @@
 package httprouter
 
 import (
+	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 )
 
@@ -53,4 +55,47 @@ func (req *Request) FormBool(fieldName string) bool {
 	val := req.FormValue(fieldName)
 
 	return !(val == "" || val == "0" || val == "false")
+}
+
+func (req *Request) FormSlice(fieldName string) []string {
+	req.ParseForm()
+	var result []string
+	for key, val := range req.Form {
+		var matched bool
+		var err error
+		if matched, err = regexp.MatchString("^"+fieldName+"\\[\\d*\\]$", key); err != nil {
+			log.Println(err)
+			continue
+		}
+		if !matched {
+			continue
+		}
+		result = append(result, val...)
+	}
+	return result
+}
+
+func (req *Request) FormMap(fieldName string) map[string]string {
+	result := make(map[string]string)
+	var err error
+	var field string
+	var reg *regexp.Regexp
+	var keyReg *regexp.Regexp
+	if reg, err = regexp.Compile("^" + fieldName + "\\[\\w+\\]$"); err != nil {
+		log.Println(err)
+		return result
+	}
+	if keyReg, err = regexp.Compile("\\[\\w+\\]"); err != nil {
+		log.Println(err)
+		return result
+	}
+	req.ParseForm()
+	for key, val := range req.Form {
+		field = keyReg.FindString(reg.FindString(key))
+		if field != "" {
+			result[field[1:len(field)-1]] = val[0]
+		}
+	}
+
+	return result
 }
