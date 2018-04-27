@@ -180,7 +180,10 @@ func (router *Router) Handle(method string, path string, h HttpHandler) {
 }
 
 func (router *Router) Group(prefix string, ms *Middlewares, grp GroupCall) {
-	router.ms.Merge(ms)
+	newMs := NewMs()
+	newMs.Merge(router.ms)
+	newMs.Merge(ms)
+	router.ms = newMs
 	router.prefix += prefix
 	grp(router)
 	router.ms = NewMs()
