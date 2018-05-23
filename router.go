@@ -18,17 +18,18 @@ const (
 type HttpHandler func(http.ResponseWriter, *Request, *helper.P)
 type GroupCall func(router *Router)
 type ResponseHeaderHandler func(http.ResponseWriter)
+type BeforeExecute func(http.ResponseWriter, *Request, *helper.P) bool
 
 type Router struct {
-	Tries                []string
-	DocRoot              string
-	EntryFile            string
-	On404                HttpHandler
-	configs              []config
-	Logger               *log.Logger
-	HandleResponseHeader ResponseHeaderHandler
-	ms                   *Middlewares
-	prefix               string
+	Tries     []string
+	DocRoot   string
+	EntryFile string
+	On404     HttpHandler
+	configs   []config
+	Logger    *log.Logger
+	Before    BeforeExecute
+	ms        *Middlewares
+	prefix    string
 }
 
 type config struct {
@@ -51,6 +52,9 @@ func NewRouter() *Router {
 	router.configs = []config{}
 	router.ms = NewMs()
 	router.prefix = ""
+	router.Before = func(_ http.ResponseWriter, _ *Request, _ *helper.P) bool {
+		return true
+	}
 	router.Logger = log.New(os.Stdout, "Http Router -> ", log.Lshortfile)
 	router.On404 = onNotFound
 	return router
@@ -95,11 +99,13 @@ func (router *Router) tryApi(w http.ResponseWriter, req *http.Request) bool {
 		if !matched {
 			continue
 		}
+		if !router.Before(w, &Request{req}, params) {
+			return true
+		}
 		if req.Method != conf.method {
 			methodNotAllowed = true
 			continue
 		}
-		router.HandleResponseHeader(w)
 		if conf.ms.Exec(w, &Request{req}, params) {
 			conf.call(w, &Request{req}, params)
 		}
