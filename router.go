@@ -17,16 +17,18 @@ const (
 
 type HttpHandler func(http.ResponseWriter, *Request, *helper.P)
 type GroupCall func(router *Router)
+type ResponseHeaderHandler func(http.ResponseWriter)
 
 type Router struct {
-	Tries     []string
-	DocRoot   string
-	EntryFile string
-	On404     HttpHandler
-	configs   []config
-	Logger    *log.Logger
-	ms        *Middlewares
-	prefix    string
+	Tries                []string
+	DocRoot              string
+	EntryFile            string
+	On404                HttpHandler
+	configs              []config
+	Logger               *log.Logger
+	HandleResponseHeader ResponseHeaderHandler
+	ms                   *Middlewares
+	prefix               string
 }
 
 type config struct {
@@ -97,6 +99,7 @@ func (router *Router) tryApi(w http.ResponseWriter, req *http.Request) bool {
 			methodNotAllowed = true
 			continue
 		}
+		router.HandleResponseHeader(w)
 		if conf.ms.Exec(w, &Request{req}, params) {
 			conf.call(w, &Request{req}, params)
 		}
