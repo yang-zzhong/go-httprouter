@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 type Request struct {
@@ -58,8 +59,8 @@ func (req *Request) FormBool(fieldName string) bool {
 }
 
 func (req *Request) FormSlice(fieldName string) []string {
+	result := strings.Split(req.FormValue(fieldName), ",")
 	req.ParseForm()
-	var result []string
 	for key, val := range req.Form {
 		var matched bool
 		var err error
