@@ -2,6 +2,7 @@ package httprouter
 
 import (
 	helper "github.com/yang-zzhong/go-helpers"
+	"log"
 	"net/http"
 	"net/url"
 	. "testing"
@@ -29,25 +30,65 @@ func getWriter() http.ResponseWriter {
 	return &RW{200}
 }
 
+type middleware1 struct{}
+
+func (mid *middleware1) Before(_ http.ResponseWriter, _ *Request, _ *helper.P) bool {
+	log.Print("middle 1 before")
+	beforeMiddleware1Exec = true
+	return true
+}
+
+func (mid *middleware1) After(_ http.ResponseWriter, _ *Request, _ *helper.P) bool {
+	log.Print("middle 1 after")
+	afterMiddleware1Exec = true
+	return true
+}
+
+type middleware2 struct{}
+
+func (mid *middleware2) Before(_ http.ResponseWriter, _ *Request, _ *helper.P) bool {
+	log.Print("middle 2 before")
+	beforeMiddleware2Exec = true
+	return true
+}
+
+func (mid *middleware2) After(_ http.ResponseWriter, _ *Request, _ *helper.P) bool {
+	log.Print("middle 2 after")
+	afterMiddleware2Exec = true
+	return true
+}
+
 var router *Router
 var helloWorldExec bool
 var apiHelloWorldExec bool
-var middlewareExec bool
+var beforeMiddleware1Exec bool
+var afterMiddleware1Exec bool
+var beforeMiddleware2Exec bool
+var afterMiddleware2Exec bool
 var withMiddlewareExec bool
 var params bool
 
+func _beforeFile(_ http.ResponseWriter, _ *fileHandler) bool {
+	log.Print("before file")
+	return true
+}
+
 func init() {
 	router = NewRouter()
+	router.BeforeFile = _beforeFile
 
 	helloWorldExec = false
 	apiHelloWorldExec = false
-	middlewareExec = false
+	beforeMiddleware1Exec = false
+	beforeMiddleware2Exec = false
+	afterMiddleware1Exec = false
+	afterMiddleware2Exec = false
 	withMiddlewareExec = false
 	params = false
 	router.Get("/hello-world", func(w http.ResponseWriter, req *Request, _ *helper.P) {
 		helloWorldExec = true
 	})
-	router.Group("/api", NewMs(), func(router *Router) {
+	router.Group("/api", []Middleware{}, func(router *Router) {
 		router.Get("/hello-world", func(w http.ResponseWriter, req *Request, _ *helper.P) {
 			apiHelloWorldExec = true
 		})
@@ -57,16 +98,11 @@ func init() {
 			params = true
 		}
 	})
-	middle1 := func(w http.ResponseWriter, req *Request, _ *helper.P) bool {
-		middlewareExec = true
-
-		return true
-	}
-	ms := NewMs()
-	ms.Append(middle1)
-	router.Group("", ms, func(router *Router) {
-		router.Get("/middleware", func(w http.ResponseWriter, req *Request, _ *helper.P) {
-			withMiddlewareExec = true
+	router.Group("", []Middleware{&middleware1{}}, func(router *Router) {
+		router.Group("", []Middleware{&middleware2{}}, func(router *Router) {
+			router.Get("/middleware", func(w http.ResponseWriter, req *Request, _ *helper.P) {
+				withMiddlewareExec = true
+			})
 		})
 	})
 }
@@ -92,7 +128,7 @@ func TestRoute(t *T) {
 		t.Error("api/hello-world fail")
 	}
 	router.ServeHTTP(writer, getRequest("GET", "/middleware"))
-	if !middlewareExec {
+	if !beforeMiddleware1Exec || !beforeMiddleware2Exec || !afterMiddleware1Exec || !afterMiddleware2Exec {
 		t.Error("middleware fail")
 	}
 	if !withMiddlewareExec {

@@ -16,23 +16,25 @@ const (
 )
 
 type HttpHandler func(http.ResponseWriter, *Request, *helper.P)
+type onFileHandler func(http.ResponseWriter, *fileHandler) bool
 type GroupCall func(router *Router)
 
 type Router struct {
-	Tries     []string
-	DocRoot   string
-	EntryFile string
-	On404     HttpHandler
-	configs   []config
-	Logger    *log.Logger
-	ms        *Middlewares
-	prefix    string
+	Tries      []string
+	DocRoot    string
+	EntryFile  string
+	On404      HttpHandler
+	BeforeFile onFileHandler
+	configs    []config
+	Logger     *log.Logger
+	ms         []Middleware
+	prefix     string
 }
 
 type config struct {
 	method string
 	path   string
-	ms     *Middlewares
+	ms     []Middleware
 	call   HttpHandler
 }
 
@@ -41,16 +43,21 @@ func onNotFound(w http.ResponseWriter, req *Request, _ *helper.P) {
 	io.WriteString(w, "not found")
 }
 
+func beforeFile(_ http.ResponseWriter, _ *fileHandler) bool {
+	return true
+}
+
 func NewRouter() *Router {
 	router := new(Router)
 	router.Tries = []string{Api, PathFile, EntryFile}
 	router.DocRoot = "."
 	router.EntryFile = "index.html"
 	router.configs = []config{}
-	router.ms = NewMs()
+	router.ms = []Middleware{}
 	router.prefix = ""
 	router.Logger = log.New(os.Stdout, "Http Router -> ", log.Lshortfile)
 	router.On404 = onNotFound
+	router.BeforeFile = beforeFile
 	return router
 }
 
@@ -97,9 +104,15 @@ func (router *Router) tryApi(w http.ResponseWriter, req *http.Request) bool {
 			methodNotAllowed = true
 			continue
 		}
-		if conf.ms.Exec(w, &Request{req}, params) {
-			conf.call(w, &Request{req}, params)
+		req := &Request{req}
+		for _, mid := range conf.ms {
+			if !mid.Before(w, req, params) {
+				return true
+			}
+			defer mid.After(w, req, params)
 		}
+		conf.call(w, req, params)
+
 		return true
 	}
 	if methodNotAllowed {
@@ -128,11 +141,13 @@ func (router *Router) tryFile(w http.ResponseWriter, file string) bool {
 	if cerr != nil {
 		return false
 	}
-	w.Header().Set("Content-Type", fh.ContentType(file))
-	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
-	w.WriteHeader(http.StatusOK)
+	if router.BeforeFile(w, fh) {
+		w.Header().Set("Content-Type", fh.ContentType(file))
+		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+		w.WriteHeader(http.StatusOK)
 
-	io.WriteString(w, (string)(content))
+		io.WriteString(w, (string)(content))
+	}
 	return true
 }
 
@@ -179,10 +194,10 @@ func (router *Router) Handle(method string, path string, h HttpHandler) {
 	)
 }
 
-func (router *Router) Group(prefix string, ms *Middlewares, grp GroupCall) {
-	router.ms.Merge(ms)
+func (router *Router) Group(prefix string, ms []Middleware, grp GroupCall) {
+	router.ms = mergeMiddleware(router.ms, ms)
 	router.prefix += prefix
 	grp(router)
-	router.ms = NewMs()
+	router.ms = []Middleware{}
 	router.prefix = ""
 }
