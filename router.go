@@ -108,13 +108,13 @@ func (router *Router) tryApi(w http.ResponseWriter, req *http.Request) bool {
 		if !matched {
 			continue
 		}
-		if req.Method != conf.method {
-			methodNotAllowed = true
-			continue
-		}
 		req := &Request{req}
 		if !router.BeforeApi(w, req, params) {
 			return true
+		}
+		if req.Method != conf.method {
+			methodNotAllowed = true
+			continue
 		}
 		for _, mid := range conf.ms {
 			if !mid.Before(w, req, params) {
