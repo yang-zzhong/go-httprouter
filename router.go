@@ -26,6 +26,7 @@ type Router struct {
 	DocRoot    string
 	EntryFile  string
 	On404      HttpHandler
+	BeforeApi  BeforeExecute
 	BeforeFile onFileHandler
 	configs    []config
 	Logger     *log.Logger
@@ -49,11 +50,16 @@ func beforeFile(_ http.ResponseWriter, _ *fileHandler) bool {
 	return true
 }
 
+func beforeApi(_ http.ResponseWriter, _ *Request, _ *helper.P) bool {
+	return true
+}
+
 func NewRouter() *Router {
 	router := new(Router)
 	router.Tries = []string{Api, PathFile, EntryFile}
 	router.DocRoot = "."
 	router.EntryFile = "index.html"
+	router.BeforeApi = beforeApi
 	router.configs = []config{}
 	router.ms = []Middleware{}
 	router.prefix = ""
@@ -107,6 +113,9 @@ func (router *Router) tryApi(w http.ResponseWriter, req *http.Request) bool {
 			continue
 		}
 		req := &Request{req}
+		if !router.BeforeApi(w, req, params) {
+			return true
+		}
 		for _, mid := range conf.ms {
 			if !mid.Before(w, req, params) {
 				return true
