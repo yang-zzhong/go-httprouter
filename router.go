@@ -18,6 +18,8 @@ const (
 type HttpHandler func(http.ResponseWriter, *Request, *helper.P)
 type onFileHandler func(http.ResponseWriter, *fileHandler) bool
 type GroupCall func(router *Router)
+type ResponseHeaderHandler func(http.ResponseWriter)
+type BeforeExecute func(http.ResponseWriter, *Request, *helper.P) bool
 
 type Router struct {
 	Tries      []string
