@@ -73,7 +73,14 @@ func (req *Request) FormSlice(fieldName string) []string {
 		}
 		result = append(result, val...)
 	}
-	return result
+	res := []string{}
+	for _, val := range result {
+		if val != "" {
+			res = append(res, val)
+		}
+	}
+
+	return res
 }
 
 func (req *Request) FormMap(fieldName string) map[string]string {
