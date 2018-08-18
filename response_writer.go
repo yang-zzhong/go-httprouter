@@ -41,8 +41,9 @@ func (rw *ResponseWriter) String(content string) {
 	rw.content = []byte(content)
 }
 
-func (rw *ResponseWriter) Write(content []byte) {
+func (rw *ResponseWriter) Write(content []byte) (int, error) {
 	rw.content = content
+	return len(rw.content), nil
 }
 
 func (rw *ResponseWriter) InternalError(err error) {
