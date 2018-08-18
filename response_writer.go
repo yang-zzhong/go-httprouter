@@ -57,6 +57,7 @@ func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
 	if bytes.Index(ae, []byte("gzip")) == -1 {
 		w.Write(rw.content)
 		w.WriteHeader(rw.statusCode)
+		return
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	z := gzip.NewWriter(w)
