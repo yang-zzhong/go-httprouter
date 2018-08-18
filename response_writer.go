@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -51,24 +50,20 @@ func (rw *ResponseWriter) InternalError(err error) {
 }
 
 func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
-	zipEnabled := true
 	for key, val := range rw.headers {
 		w.Header().Set(key, val)
-		if key == "Content-Type" && bytes.Index([]byte(key), []byte("image")) != 1 {
-			zipEnabled = false
-		}
 	}
-	acceptEncoding := []byte(req.Header.Get("Accept-Encoding"))
-	if zipEnabled && bytes.Index(acceptEncoding, []byte("gzip")) != -1 {
-		w.Header().Set("Content-Encoding", "gzip")
-		z := gzip.NewWriter(w)
-		defer z.Close()
-		if _, err := z.Write(rw.content); err != nil {
-			log.Print(err)
-		}
-		z.Flush()
-	} else {
+	ae := []byte(req.Header.Get("Accept-Encoding"))
+	if bytes.Index(ae, []byte("gzip")) == -1 {
 		w.Write(rw.content)
+		w.WriteHeader(rw.statusCode)
 	}
+	w.Header().Set("Content-Encoding", "gzip")
+	z := gzip.NewWriter(w)
+	defer z.Close()
+	if _, err := z.Write(rw.content); err != nil {
+		panic(err)
+	}
+	z.Flush()
 	w.WriteHeader(rw.statusCode)
 }
