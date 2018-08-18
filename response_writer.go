@@ -59,6 +59,7 @@ func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
 		}
 	}
 	acceptEncoding := []byte(req.Header.Get("Accept-Encoding"))
+	w.WriteHeader(rw.statusCode)
 	if zipEnabled && bytes.Index(acceptEncoding, []byte("gzip")) != -1 {
 		w.Header().Set("Content-Encoding", "gzip")
 		z := gzip.NewWriter(w)
@@ -70,5 +71,4 @@ func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
 	} else {
 		w.Write(rw.content)
 	}
-	w.WriteHeader(rw.statusCode)
 }
