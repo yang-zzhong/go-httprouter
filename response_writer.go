@@ -10,14 +10,13 @@ import (
 )
 
 type ResponseWriter struct {
-	statusCode  int
-	headers     map[string]string
-	gzipEnabled bool
-	content     []byte
+	statusCode int
+	headers    map[string]string
+	content    []byte
 }
 
 func NewResponseWriter() *ResponseWriter {
-	return &ResponseWriter{200, make(map[string]string), true, nil}
+	return &ResponseWriter{200, make(map[string]string), nil}
 }
 
 func (rw *ResponseWriter) WithStatusCode(statusCode int) *ResponseWriter {
@@ -52,11 +51,15 @@ func (rw *ResponseWriter) InternalError(err error) {
 }
 
 func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
+	zipEnabled := true
 	for key, val := range rw.headers {
 		w.Header().Set(key, val)
+		if key == "Content-Type" && bytes.Index([]byte(key), []byte("image")) != 1 {
+			zipEnabled = false
+		}
 	}
 	acceptEncoding := []byte(req.Header.Get("Accept-Encoding"))
-	if bytes.Index(acceptEncoding, []byte("gzip")) != -1 {
+	if zipEnabled && bytes.Index(acceptEncoding, []byte("gzip")) != -1 {
 		w.Header().Set("Content-Encoding", "gzip")
 		z := gzip.NewWriter(w)
 		defer z.Close()
