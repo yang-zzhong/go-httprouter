@@ -1,22 +1,23 @@
 package httprouter
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 )
 
 type ResponseWriter struct {
-	w           http.ResponseWriter
 	statusCode  int
 	headers     map[string]string
 	gzipEnabled bool
 	content     []byte
 }
 
-func NewResponseWriter(w http.ResponseWriter) *ResponseWriter {
-	return &ResponseWriter{w, 200, make(map[string]string), true, nil}
+func NewResponseWriter() *ResponseWriter {
+	return &ResponseWriter{200, make(map[string]string), true, nil}
 }
 
 func (rw *ResponseWriter) WithStatusCode(statusCode int) *ResponseWriter {
@@ -50,16 +51,21 @@ func (rw *ResponseWriter) InternalError(err error) {
 	rw.WithStatusCode(500).String(err.Error())
 }
 
-func (rw *ResponseWriter) Flush(req *http.Request) {
-	rw.w.WriteHeader(rw.statusCode)
+func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
 	for key, val := range rw.headers {
-		rw.w.Header().Set(key, val)
+		w.Header().Set(key, val)
 	}
-	if rw.gzipEnabled {
-		rw.w.Header().Set("Content-Encoding", "gzip")
-		w := gzip.NewWriter(rw.w)
-		w.Write(rw.content)
+	acceptEncoding := []byte(req.Header.Get("Accept-Encoding"))
+	if bytes.Index(acceptEncoding, []byte("gzip")) != -1 {
+		w.Header().Set("Content-Encoding", "gzip")
+		z := gzip.NewWriter(w)
+		defer z.Close()
+		if _, err := z.Write(rw.content); err != nil {
+			log.Print(err)
+		}
+		z.Flush()
 	} else {
-		rw.w.Write(rw.content)
+		w.Write(rw.content)
 	}
+	w.WriteHeader(rw.statusCode)
 }

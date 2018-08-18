@@ -69,8 +69,8 @@ func NewRouter() *Router {
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	router.Logger.Printf("%v\t%s\t%v\t%v", req.Proto, req.URL.Path, req.Header, req.Body)
-	r := NewResponseWriter(w)
-	defer r.Flush(req)
+	r := NewResponseWriter()
+	defer r.Flush(req, w)
 	if req.Method == http.MethodGet {
 		router.try(r, req)
 		return
