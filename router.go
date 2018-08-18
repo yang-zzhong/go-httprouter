@@ -68,12 +68,16 @@ func NewRouter() *Router {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log.Printf("%s\t%s\t%v", req.Method, req.URL.Path, req.Proto)
+	router.HandleRequest(w, req)
+}
+
+func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Fatal(err)
 		}
 	}()
-	log.Printf("%v\t%s\t%v\t%v", req.Proto, req.URL.Path, req.Header, req.Body)
 	r := NewResponseWriter()
 	defer r.Flush(req, w)
 	if req.Method == http.MethodGet {

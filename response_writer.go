@@ -49,7 +49,7 @@ func (rw *ResponseWriter) InternalError(err error) {
 	rw.WithStatusCode(500).String(err.Error())
 }
 
-func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
+func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) error {
 	for key, val := range rw.headers {
 		w.Header().Set(key, val)
 	}
@@ -57,14 +57,15 @@ func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) {
 	if bytes.Index(ae, []byte("gzip")) == -1 {
 		w.WriteHeader(rw.statusCode)
 		w.Write(rw.content)
-		return
+		return nil
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.WriteHeader(rw.statusCode)
 	z := gzip.NewWriter(w)
 	defer z.Close()
 	if _, err := z.Write(rw.content); err != nil {
-		panic(err)
+		return err
 	}
 	z.Flush()
+	return nil
 }
