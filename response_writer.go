@@ -61,11 +61,13 @@ func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) error 
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.WriteHeader(rw.statusCode)
-	z := gzip.NewWriter(w)
+	var buf bytes.Buffer
+	z := gzip.NewWriter(&buf)
 	defer z.Close()
 	if _, err := z.Write(rw.content); err != nil {
 		return err
 	}
 	z.Flush()
+	w.Write(buf.Bytes())
 	return nil
 }
