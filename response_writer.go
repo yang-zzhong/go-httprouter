@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -33,10 +34,12 @@ func (rw *ResponseWriter) Read(reader io.Reader) {
 }
 
 func (rw *ResponseWriter) Json(content interface{}) {
+	rw.WithHeader("Content-Type", "text/json")
 	rw.content, _ = json.Marshal(content)
 }
 
 func (rw *ResponseWriter) String(content string) {
+	rw.WithHeader("Content-Type", "text/plain")
 	rw.content = []byte(content)
 }
 

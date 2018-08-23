@@ -75,11 +75,15 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Fatal(err)
+			log.Print(err)
 		}
 	}()
 	r := NewResponseWriter()
-	defer r.Flush(req, w)
+	defer func() {
+		if err := r.Flush(req, w); err != nil {
+			panic(err)
+		}
+	}()
 	if req.Method == http.MethodGet {
 		router.try(r, req)
 		return
