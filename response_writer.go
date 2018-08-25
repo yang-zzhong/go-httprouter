@@ -9,18 +9,31 @@ import (
 )
 
 type ResponseWriter struct {
-	statusCode int
+	StatusCode int
+	writer     http.ResponseWriter
 	headers    map[string]string
 	content    []byte
 }
 
-func NewResponseWriter() *ResponseWriter {
-	return &ResponseWriter{200, make(map[string]string), nil}
+func NewResponseWriter(w http.ResponseWriter) *ResponseWriter {
+	return &ResponseWriter{200, w, make(map[string]string), nil}
+}
+
+func (rw *ResponseWriter) UnderlyingWriter() http.ResponseWriter {
+	return rw.writer
 }
 
 func (rw *ResponseWriter) WithStatusCode(statusCode int) *ResponseWriter {
-	rw.statusCode = statusCode
+	rw.StatusCode = statusCode
 	return rw
+}
+
+func (rw *ResponseWriter) Headers() map[string]string {
+	return rw.headers
+}
+
+func (rw *ResponseWriter) Body() []byte {
+	return rw.content
 }
 
 func (rw *ResponseWriter) WithHeader(key, val string) *ResponseWriter {
@@ -51,18 +64,19 @@ func (rw *ResponseWriter) InternalError(err error) {
 	rw.WithStatusCode(500).String(err.Error())
 }
 
-func (rw *ResponseWriter) Flush(req *http.Request, w http.ResponseWriter) error {
+func (rw *ResponseWriter) Flush(req *http.Request) error {
+	w := rw.writer
 	for key, val := range rw.headers {
 		w.Header().Set(key, val)
 	}
 	ae := []byte(req.Header.Get("Accept-Encoding"))
 	if bytes.Index(ae, []byte("gzip")) == -1 {
-		w.WriteHeader(rw.statusCode)
+		w.WriteHeader(rw.StatusCode)
 		w.Write(rw.content)
 		return nil
 	}
 	w.Header().Set("Content-Encoding", "gzip")
-	w.WriteHeader(rw.statusCode)
+	w.WriteHeader(rw.StatusCode)
 	var buf bytes.Buffer
 	z := gzip.NewWriter(&buf)
 	defer z.Close()

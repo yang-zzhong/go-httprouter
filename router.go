@@ -68,7 +68,6 @@ func NewRouter() *Router {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Printf("%s\t%s\t%v", req.Method, req.URL.Path, req.Proto)
 	router.HandleRequest(w, req)
 }
 
@@ -78,9 +77,10 @@ func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 			log.Print(err)
 		}
 	}()
-	r := NewResponseWriter()
+	r := NewResponseWriter(w)
 	defer func() {
-		if err := r.Flush(req, w); err != nil {
+		log.Printf("%s\t%s\t%v\t%d", req.Method, req.URL.Path, req.Proto, r.StatusCode)
+		if err := r.Flush(req); err != nil {
 			panic(err)
 		}
 	}()
