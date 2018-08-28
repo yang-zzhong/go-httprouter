@@ -4,7 +4,6 @@ import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"log"
 	"net/http"
-	"os"
 )
 
 const (
@@ -18,6 +17,7 @@ type onFileHandler func(*ResponseWriter, *fileHandler) bool
 type GroupCall func(router *Router)
 type ResponseHeaderHandler func(*ResponseWriter)
 type BeforeExecute func(*ResponseWriter, *Request, *helper.P) bool
+type onPanic func(interface{})
 
 type Router struct {
 	Tries      []string
@@ -26,8 +26,8 @@ type Router struct {
 	On404      HttpHandler
 	BeforeApi  BeforeExecute
 	BeforeFile onFileHandler
+	OnPanic    onPanic
 	configs    []config
-	Logger     *log.Logger
 	ms         []Middleware
 	prefix     string
 }
@@ -55,13 +55,13 @@ func beforeApi(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
 func NewRouter() *Router {
 	router := new(Router)
 	router.Tries = []string{Api, PathFile, EntryFile}
+	router.OnPanic = func(info interface{}) { log.Print(info) }
 	router.DocRoot = "."
 	router.EntryFile = "index.html"
 	router.BeforeApi = beforeApi
 	router.configs = []config{}
 	router.ms = []Middleware{}
 	router.prefix = ""
-	router.Logger = log.New(os.Stdout, "Http Router -> ", log.Lshortfile)
 	router.On404 = onNotFound
 	router.BeforeFile = beforeFile
 	return router
@@ -74,7 +74,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Print(err)
+			router.OnPanic(err)
 		}
 	}()
 	r := NewResponseWriter(w)
