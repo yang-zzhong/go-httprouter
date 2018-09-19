@@ -9,6 +9,7 @@
 ```go
 import (
     "log"
+	"logic" // user app provide
     "net/http"
     helper "github.com/yang-zzhong/go-helpers"
     httprouter "github.com/yang-zzhong/go-httprouter"
@@ -32,11 +33,11 @@ router.DocRoot = "/srv/http/test"
 var userList HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, _ *helper.P) {
     page := req.FormInt("page")
     pageSize := req.FormatInt("page_size")
-    w.Json(logic.UserList(page, pageSize))
+    w.WriteJson(logic.UserList(page, pageSize))
 }
 
 var user HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request, p *helper.P) {
-    w.Json(logic.User(p.Get("user_id")))
+    w.WriteJson(logic.User(p.Get("user_id")))
 }
 
 var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, _ *helpers.P) {
@@ -48,7 +49,7 @@ var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.
     if err := logic.CreateUser(params); err != nil {
         panic(err)
     }
-    w.String("创建成功")
+    w.WriteString("创建成功")
 }
 
 var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, p *helpers.P) {
@@ -61,11 +62,11 @@ var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.
         panic(err)
     }
 
-    w.String("更新成功")
+    w.WriteString("更新成功")
 }
 
 var hello HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request, _ *helper.P) {
-    w.String("hello world!!!")
+    w.WriteString("hello world!!!")
 }
 
 router.Group("/api", []Middleware{}, func(router *Router) {
@@ -73,7 +74,7 @@ router.Group("/api", []Middleware{}, func(router *Router) {
     router.OnGet("/users/:user_id", user)
     router.OnPost("/users", createUser)
 
-    router.Group("", []Middleware{new(Auth)}, func(router *Router) {
+    router.Group("", []Middleware{new(logic.Auth)}, func(router *Router) {
         router.OnPut("/users/:user_id", updateUser)
     });
 })

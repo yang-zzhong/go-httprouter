@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -72,7 +71,6 @@ func (rw *ResponseWriter) WriteString(content string) {
 }
 
 func (rw *ResponseWriter) WriteFile(pathfile string) {
-	log.Print("pathfile\t", pathfile)
 	if content, err := ioutil.ReadFile(pathfile); err != nil {
 		panic(err)
 	} else if length, err := rw.Write(content); err != nil {
