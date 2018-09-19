@@ -168,6 +168,7 @@ func (router *Router) tryFile(r *ResponseWriter, file string) bool {
 		r.WithStatusCode(404).String("File Not Found")
 		return false
 	}
+	r.WithStatusCode(200)
 	if router.BeforeFile(r, pathfile) {
 		r.WriteFile(pathfile)
 	}
