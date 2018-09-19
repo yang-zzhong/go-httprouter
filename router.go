@@ -159,11 +159,14 @@ func (router *Router) tryPathFile(r *ResponseWriter, req *http.Request) bool {
 
 func (router *Router) tryFile(r *ResponseWriter, file string) bool {
 	pathfile := Join(router.DocRoot, file)
-	if _, err := os.Stat(pathfile); err != nil {
+	if stat, err := os.Stat(pathfile); err != nil {
 		if os.IsNotExist(err) {
 			r.WithStatusCode(404).String("File Not Found")
-			return true
+			return false
 		}
+	} else if stat.IsDir() {
+		r.WithStatusCode(404).String("File Not Found")
+		return false
 	}
 	if router.BeforeFile(r, pathfile) {
 		r.WriteFile(pathfile)
