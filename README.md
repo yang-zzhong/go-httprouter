@@ -8,8 +8,8 @@
 
 ```go
 import (
-    . "net/http"
-    "io"
+    "log"
+    "net/http"
     helper "github.com/yang-zzhong/go-helpers"
     httprouter "github.com/yang-zzhong/go-httprouter"
 )
@@ -29,21 +29,57 @@ router.Tries = []string{httprooter.Api}
 router.DocRoot = "/srv/http/test"
 
 // config api
-var userList HttpHandler = func(w ResponseWriter, req *Request, _ *helper.P) {
-    io.WriteString(w, "user list")
-}
-var user HttpHandler = func(w ResponseWriter, req *Request, _ *helper.P) {
-    io.WriteString(w, "user")
-}
-
-var hello HttpHandler = func(w ResponseWriter, req *Request, p *helper.P) {
-    io.WriteString(w, "hello " + p.Get("world"))
+var userList HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, _ *helper.P) {
+    page := req.FormInt("page")
+    pageSize := req.FormatInt("page_size")
+    w.Json(logic.UserList(page, pageSize))
 }
 
-router.Group("/api", NewMs(), func(router Router) {
-    router.Get("/users", UsersList)
-    router.Get("/users/:name", User)
+var user HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request, p *helper.P) {
+    w.Json(logic.User(p.Get("user_id")))
+}
+
+var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, _ *helpers.P) {
+    params := map[string]interface{}{
+        "name": req.FormValue("name"),
+        "account": req.FormValue("account"),
+        "extra": req.FormMap("extra"),
+    }
+    if err := logic.CreateUser(params); err != nil {
+        panic(err)
+    }
+    w.String("创建成功")
+}
+
+var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, p *helpers.P) {
+    params := map[string]interface{}{
+        "name": req.FormValue("name"),
+        "account": req.FormValue("account"),
+        "extra": req.FormMap("extra"),
+    }
+    if err := logic.UpdateUser(p.Get("user_id"), params); err != nil {
+        panic(err)
+    }
+
+    w.String("更新成功")
+}
+
+var hello HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request, _ *helper.P) {
+    w.String("hello world!!!")
+}
+
+router.Group("/api", []Middleware{}, func(router *Router) {
+    router.OnGet("/users", usersList)
+    router.OnGet("/users/:user_id", user)
+    router.OnPost("/users", createUser)
+
+    router.Group("", []Middleware{new(Auth)}, func(router *Router) {
+        router.OnPut("/users/:user_id", updateUser)
+    });
 })
-router.Get("/hello/:world", hello)
+
+router.OnGet("/hello-world", hello)
+
+log.Fatal(http.ListenAndServe(":8080", router))
 
 ```

@@ -5,7 +5,10 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"strconv"
 )
 
 type ResponseWriter struct {
@@ -58,6 +61,28 @@ func (rw *ResponseWriter) String(content string) {
 func (rw *ResponseWriter) Write(content []byte) (int, error) {
 	rw.content = content
 	return len(rw.content), nil
+}
+
+func (rw *ResponseWriter) WriteJson(content interface{}) {
+	rw.Json(content)
+}
+
+func (rw *ResponseWriter) WriteString(content string) {
+	rw.String(content)
+}
+
+func (rw *ResponseWriter) WriteFile(pathfile string) {
+	log.Print("pathfile\t", pathfile)
+	if content, err := ioutil.ReadFile(pathfile); err != nil {
+		panic(err)
+	} else if length, err := rw.Write(content); err != nil {
+		panic(err)
+	} else {
+		rw.WithHeader("Content-Length", strconv.Itoa(length))
+	}
+	if contentType := guessContentType(pathfile); contentType != "" {
+		rw.WithHeader("Content-Type", contentType)
+	}
 }
 
 func (rw *ResponseWriter) InternalError(err error) {

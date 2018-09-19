@@ -68,7 +68,7 @@ var afterMiddleware2Exec bool
 var withMiddlewareExec bool
 var params bool
 
-func _beforeFile(_ *ResponseWriter, _ *fileHandler) bool {
+func _beforeFile(_ *ResponseWriter, _ string) bool {
 	log.Print("before file")
 	return true
 }
@@ -85,7 +85,7 @@ func init() {
 	afterMiddleware2Exec = false
 	withMiddlewareExec = false
 	params = false
-	router.Get("/hello-world", func(w *ResponseWriter, req *Request, _ *helper.P) {
+	router.OnGet("/hello-world", func(w *ResponseWriter, req *Request, _ *helper.P) {
 		helloWorldExec = true
 	})
 	router.Group("/api", []Middleware{}, func(router *Router) {
@@ -93,14 +93,14 @@ func init() {
 			apiHelloWorldExec = true
 		})
 	})
-	router.Get("/users/:name", func(w *ResponseWriter, req *Request, p *helper.P) {
+	router.OnGet("/users/:name", func(w *ResponseWriter, req *Request, p *helper.P) {
 		if p.Get("name") == "young" {
 			params = true
 		}
 	})
 	router.Group("", []Middleware{&middleware1{}}, func(router *Router) {
 		router.Group("", []Middleware{&middleware2{}}, func(router *Router) {
-			router.Get("/middleware", func(w *ResponseWriter, req *Request, _ *helper.P) {
+			router.OnGet("/middleware", func(w *ResponseWriter, req *Request, _ *helper.P) {
 				withMiddlewareExec = true
 			})
 		})

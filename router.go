@@ -4,6 +4,8 @@ import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"log"
 	"net/http"
+	"os"
+	. "path"
 )
 
 const (
@@ -13,7 +15,7 @@ const (
 )
 
 type HttpHandler func(*ResponseWriter, *Request, *helper.P)
-type onFileHandler func(*ResponseWriter, *fileHandler) bool
+type onFileHandler func(*ResponseWriter, string) bool
 type GroupCall func(router *Router)
 type ResponseHeaderHandler func(*ResponseWriter)
 type BeforeExecute func(*ResponseWriter, *Request, *helper.P) bool
@@ -44,7 +46,7 @@ func onNotFound(w *ResponseWriter, req *Request, _ *helper.P) {
 	w.String("not found")
 }
 
-func beforeFile(_ *ResponseWriter, _ *fileHandler) bool {
+func beforeFile(_ *ResponseWriter, _ string) bool {
 	return true
 }
 
@@ -156,19 +158,15 @@ func (router *Router) tryPathFile(r *ResponseWriter, req *http.Request) bool {
 }
 
 func (router *Router) tryFile(r *ResponseWriter, file string) bool {
-	fh := newFileHandler(router.DocRoot)
-	available, _ := fh.Available(file)
-	if !available {
-		return false
+	pathfile := Join(router.DocRoot, file)
+	if _, err := os.Stat(pathfile); err != nil {
+		if os.IsNotExist(err) {
+			r.WithStatusCode(404).String("File Not Found")
+			return true
+		}
 	}
-	content, cerr := fh.Contents(file)
-	if cerr != nil {
-		return false
-	}
-	if router.BeforeFile(r, fh) {
-		r.WithHeader("Content-Type", fh.ContentType(file))
-		r.WithStatusCode(http.StatusOK)
-		r.Write(content)
+	if router.BeforeFile(r, pathfile) {
+		r.WriteFile(pathfile)
 	}
 	return true
 }
@@ -176,6 +174,38 @@ func (router *Router) tryFile(r *ResponseWriter, file string) bool {
 func (router *Router) Match(method string, path string, req *http.Request) (m bool, p *helper.P) {
 	m, p = newPath(path).match(req.URL.Path)
 	return
+}
+
+func (router *Router) OnGet(path string, h HttpHandler) {
+	router.Get(path, h)
+}
+
+func (router *Router) OnPost(path string, h HttpHandler) {
+	router.Post(path, h)
+}
+
+func (router *Router) OnPut(path string, h HttpHandler) {
+	router.Put(path, h)
+}
+
+func (router *Router) OnDelete(path string, h HttpHandler) {
+	router.Delete(path, h)
+}
+
+func (router *Router) OnPatch(path string, h HttpHandler) {
+	router.Patch(path, h)
+}
+
+func (router *Router) OnConnect(path string, h HttpHandler) {
+	router.Connect(path, h)
+}
+
+func (router *Router) OnOption(path string, h HttpHandler) {
+	router.OnOption(path, h)
+}
+
+func (router *Router) OnTrace(path string, h HttpHandler) {
+	router.OnTrace(path, h)
 }
 
 func (router *Router) Get(path string, h HttpHandler) {

@@ -1,8 +1,6 @@
 package httprouter
 
 import (
-	"io/ioutil"
-	"os"
 	. "path"
 )
 
@@ -335,40 +333,10 @@ var extToContentType = map[string]string{
 	".xap":     "application/x-silverlight-app",
 }
 
-type fileHandler struct {
-	basePath string
-}
-
-func newFileHandler(basePath string) *fileHandler {
-	return &fileHandler{basePath}
-}
-
-func (fh *fileHandler) Available(file string) (bool, error) {
-	if _, err := os.Stat(fh.pathfile(file)); err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (fh *fileHandler) Contents(file string) ([]byte, error) {
-	available, err := fh.Available(file)
-	if !available {
-		return []byte{}, err
-	}
-
-	return ioutil.ReadFile(fh.pathfile(file))
-}
-
-func (fh *fileHandler) pathfile(file string) string {
-	return Join(fh.basePath, file)
-}
-
-func (fh *fileHandler) ContentType(file string) string {
-	val, ok := extToContentType[Ext(file)]
-	if ok {
+func guessContentType(pathfile string) string {
+	if val, ok := extToContentType[Ext(pathfile)]; ok {
 		return val
 	}
 
-	return "application/octet-stream"
+	return ""
 }
