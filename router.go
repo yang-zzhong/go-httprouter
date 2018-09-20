@@ -1,6 +1,4 @@
-//
 // the package provide a simple clean http route on server side
-//
 package httprouter
 
 import (
@@ -17,11 +15,19 @@ const (
 	EntryFile = "entryfile"
 )
 
-type HttpHandler func(*ResponseWriter, *Request, *helper.P)
+// http handler type
+type HttpHandler func(*ResponseWriter, *Request)
+
+// router as file server, when output file, execute the callback. here is the type
 type onFileHandler func(*ResponseWriter, string) bool
+
+// group call type
 type GroupCall func(router *Router)
-type ResponseHeaderHandler func(*ResponseWriter)
-type BeforeExecute func(*ResponseWriter, *Request, *helper.P) bool
+
+// when uri match, the callback will be executed. warning that, when different method, uri possibly match many times
+type BeforeExecute func(*ResponseWriter, *Request) bool
+
+// any panic will cause the callback execute
 type onPanic func(interface{})
 
 type Router struct {
@@ -44,7 +50,7 @@ type config struct {
 	call   HttpHandler
 }
 
-func onNotFound(w *ResponseWriter, req *Request, _ *helper.P) {
+func onNotFound(w *ResponseWriter, req *Request) {
 	w.WithStatusCode(http.StatusNotFound)
 	w.String("not found")
 }
@@ -53,10 +59,11 @@ func beforeFile(_ *ResponseWriter, _ string) bool {
 	return true
 }
 
-func beforeApi(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
+func beforeApi(_ *ResponseWriter, _ *Request) bool {
 	return true
 }
 
+// new router
 func NewRouter() *Router {
 	router := new(Router)
 	router.Tries = []string{Api, PathFile, EntryFile}
@@ -96,7 +103,7 @@ func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	if router.tryApi(r, req) {
 		return
 	}
-	router.On404(r, &Request{req}, helper.NewP())
+	router.On404(r, &Request{helper.NewP(), req})
 }
 
 func (router *Router) try(r *ResponseWriter, req *http.Request) {
@@ -116,7 +123,7 @@ func (router *Router) try(r *ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	router.On404(r, &Request{req}, helper.NewP())
+	router.On404(r, &Request{helper.NewP(), req})
 }
 
 func (router *Router) tryApi(r *ResponseWriter, req *http.Request) bool {
@@ -126,8 +133,8 @@ func (router *Router) tryApi(r *ResponseWriter, req *http.Request) bool {
 		if !matched {
 			continue
 		}
-		req := &Request{req}
-		if !router.BeforeApi(r, req, params) {
+		req := &Request{params, req}
+		if !router.BeforeApi(r, req) {
 			return true
 		}
 		if req.Method != conf.method {
@@ -135,12 +142,12 @@ func (router *Router) tryApi(r *ResponseWriter, req *http.Request) bool {
 			continue
 		}
 		for _, mid := range conf.ms {
-			if !mid.Before(r, req, params) {
+			if !mid.Before(r, req) {
 				return true
 			}
-			defer mid.After(r, req, params)
+			defer mid.After(r, req)
 		}
-		conf.call(r, req, params)
+		conf.call(r, req)
 
 		return true
 	}
@@ -183,76 +190,94 @@ func (router *Router) Match(method string, path string, req *http.Request) (m bo
 	return
 }
 
+// on get uri
 func (router *Router) OnGet(path string, h HttpHandler) {
 	router.Get(path, h)
 }
 
+// on post uri
 func (router *Router) OnPost(path string, h HttpHandler) {
 	router.Post(path, h)
 }
 
+// on put uri
 func (router *Router) OnPut(path string, h HttpHandler) {
 	router.Put(path, h)
 }
 
+// on delete uri
 func (router *Router) OnDelete(path string, h HttpHandler) {
 	router.Delete(path, h)
 }
 
+// on patch uri
 func (router *Router) OnPatch(path string, h HttpHandler) {
 	router.Patch(path, h)
 }
 
+// on connect uri
 func (router *Router) OnConnect(path string, h HttpHandler) {
 	router.Connect(path, h)
 }
 
-func (router *Router) OnOption(path string, h HttpHandler) {
-	router.OnOption(path, h)
+// on option uri
+func (router *Router) OnOptions(path string, h HttpHandler) {
+	router.Options(path, h)
 }
 
+// on trace uri
 func (router *Router) OnTrace(path string, h HttpHandler) {
 	router.OnTrace(path, h)
 }
 
+// legacy on get uri, abandon future
 func (router *Router) Get(path string, h HttpHandler) {
 	router.Handle(http.MethodGet, path, h)
 }
 
+// legacy on post uri, abandon future
 func (router *Router) Post(path string, h HttpHandler) {
 	router.Handle(http.MethodPost, path, h)
 }
 
+// legacy on put uri, abandon future
 func (router *Router) Put(path string, h HttpHandler) {
 	router.Handle(http.MethodPut, path, h)
 }
 
+// legacy on delete uri, abandon future
 func (router *Router) Delete(path string, h HttpHandler) {
 	router.Handle(http.MethodDelete, path, h)
 }
 
+// legacy on patch uri, abandon future
 func (router *Router) Patch(path string, h HttpHandler) {
 	router.Handle(http.MethodPatch, path, h)
 }
 
+// legacy on options uri, abandon future
 func (router *Router) Options(path string, h HttpHandler) {
 	router.Handle(http.MethodOptions, path, h)
 }
 
+// legacy on trace uri, abandon future
 func (router *Router) Trace(path string, h HttpHandler) {
 	router.Handle(http.MethodTrace, path, h)
 }
 
+// legacy on connect uri, abandon future
 func (router *Router) Connect(path string, h HttpHandler) {
 	router.Handle(http.MethodConnect, path, h)
 }
 
+// handle a request
 func (router *Router) Handle(method string, path string, h HttpHandler) {
 	router.configs = append(
 		router.configs, config{method, router.prefix + path, router.ms, h},
 	)
 }
 
+// add prefix, middleware for a bunch of request
 func (router *Router) Group(prefix string, ms []Middleware, grp GroupCall) {
 	router.ms = mergeMiddleware(router.ms, ms)
 	router.prefix += prefix

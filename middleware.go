@@ -1,12 +1,8 @@
 package httprouter
 
-import (
-	helpers "github.com/yang-zzhong/go-helpers"
-)
-
 type Middleware interface {
-	Before(m *ResponseWriter, req *Request, p *helpers.P) bool
-	After(m *ResponseWriter, req *Request, p *helpers.P) bool
+	Before(m *ResponseWriter, req *Request) bool
+	After(m *ResponseWriter, req *Request) bool
 }
 
 func mergeMiddleware(m1, m2 []Middleware) []Middleware {

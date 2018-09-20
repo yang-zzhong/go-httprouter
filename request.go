@@ -1,6 +1,7 @@
 package httprouter
 
 import (
+	helpers "github.com/yang-zzhong/go-helpers"
 	"log"
 	"net/http"
 	"regexp"
@@ -8,10 +9,13 @@ import (
 	"strings"
 )
 
+// wrap http.Request, and provide some useful functions
 type Request struct {
+	Bag *helpers.P
 	*http.Request
 }
 
+// read form field as int64, if you need other int type, use type convert
 func (req *Request) FormInt(fieldName string) int64 {
 	val := req.FormValue(fieldName)
 	if val == "" {
@@ -25,6 +29,7 @@ func (req *Request) FormInt(fieldName string) int64 {
 	return result
 }
 
+// read form field as uint64, if you need other uint type, use type convert
 func (req *Request) FormUint(fieldName string) uint64 {
 	val := req.FormValue(fieldName)
 	if val == "" {
@@ -39,6 +44,7 @@ func (req *Request) FormUint(fieldName string) uint64 {
 	return result
 }
 
+// read form field as float, if you need other float type, use type convert
 func (req *Request) FormFloat(fieldName string) float64 {
 	val := req.FormValue(fieldName)
 	if val == "" {
@@ -52,12 +58,14 @@ func (req *Request) FormFloat(fieldName string) float64 {
 	return result
 }
 
+// read form field as bool, "false", 0, "" will be recognised as false, others true
 func (req *Request) FormBool(fieldName string) bool {
 	val := req.FormValue(fieldName)
 
 	return !(val == "" || val == "0" || val == "false")
 }
 
+// read form field as string slice, key[\d+] will be recognised item
 func (req *Request) FormSlice(fieldName string) []string {
 	result := strings.Split(req.FormValue(fieldName), ",")
 	req.ParseForm()
@@ -83,6 +91,7 @@ func (req *Request) FormSlice(fieldName string) []string {
 	return res
 }
 
+// read form field as string slice, key[\w+] will be recognised item
 func (req *Request) FormMap(fieldName string) map[string]string {
 	result := make(map[string]string)
 	var err error

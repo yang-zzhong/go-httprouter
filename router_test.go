@@ -1,7 +1,6 @@
 package httprouter
 
 import (
-	helper "github.com/yang-zzhong/go-helpers"
 	"log"
 	"net/http"
 	"net/url"
@@ -32,13 +31,13 @@ func getWriter() http.ResponseWriter {
 
 type middleware1 struct{}
 
-func (mid *middleware1) Before(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
+func (mid *middleware1) Before(_ *ResponseWriter, _ *Request) bool {
 	log.Print("middle 1 before")
 	beforeMiddleware1Exec = true
 	return true
 }
 
-func (mid *middleware1) After(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
+func (mid *middleware1) After(_ *ResponseWriter, _ *Request) bool {
 	log.Print("middle 1 after")
 	afterMiddleware1Exec = true
 	return true
@@ -46,13 +45,13 @@ func (mid *middleware1) After(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
 
 type middleware2 struct{}
 
-func (mid *middleware2) Before(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
+func (mid *middleware2) Before(_ *ResponseWriter, _ *Request) bool {
 	log.Print("middle 2 before")
 	beforeMiddleware2Exec = true
 	return true
 }
 
-func (mid *middleware2) After(_ *ResponseWriter, _ *Request, _ *helper.P) bool {
+func (mid *middleware2) After(_ *ResponseWriter, _ *Request) bool {
 	log.Print("middle 2 after")
 	afterMiddleware2Exec = true
 	return true
@@ -85,22 +84,22 @@ func init() {
 	afterMiddleware2Exec = false
 	withMiddlewareExec = false
 	params = false
-	router.OnGet("/hello-world", func(w *ResponseWriter, req *Request, _ *helper.P) {
+	router.OnGet("/hello-world", func(w *ResponseWriter, req *Request) {
 		helloWorldExec = true
 	})
 	router.Group("/api", []Middleware{}, func(router *Router) {
-		router.Get("/hello-world", func(w *ResponseWriter, req *Request, _ *helper.P) {
+		router.Get("/hello-world", func(w *ResponseWriter, req *Request) {
 			apiHelloWorldExec = true
 		})
 	})
-	router.OnGet("/users/:name", func(w *ResponseWriter, req *Request, p *helper.P) {
-		if p.Get("name") == "young" {
+	router.OnGet("/users/:name", func(w *ResponseWriter, req *Request) {
+		if req.Bag.Get("name") == "young" {
 			params = true
 		}
 	})
 	router.Group("", []Middleware{&middleware1{}}, func(router *Router) {
 		router.Group("", []Middleware{&middleware2{}}, func(router *Router) {
-			router.OnGet("/middleware", func(w *ResponseWriter, req *Request, _ *helper.P) {
+			router.OnGet("/middleware", func(w *ResponseWriter, req *Request) {
 				withMiddlewareExec = true
 			})
 		})

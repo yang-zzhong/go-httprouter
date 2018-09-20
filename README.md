@@ -6,6 +6,8 @@
 2. With a static server that support front end route
 3. Support restful params
 
+API [go-httprouter API](https://booblogger.com/%E6%9D%A8%E5%BF%A0/go-httprouter-API)
+
 ```go
 import (
     "log"
