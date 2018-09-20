@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 )
 
 type ResponseWriter struct {
@@ -73,13 +72,13 @@ func (rw *ResponseWriter) WriteString(content string) {
 func (rw *ResponseWriter) WriteFile(pathfile string) {
 	if content, err := ioutil.ReadFile(pathfile); err != nil {
 		panic(err)
-	} else if length, err := rw.Write(content); err != nil {
+	} else if _, err := rw.Write(content); err != nil {
 		panic(err)
-	} else {
-		rw.WithHeader("Content-Length", strconv.Itoa(length))
 	}
 	if contentType := guessContentType(pathfile); contentType != "" {
 		rw.WithHeader("Content-Type", contentType)
+	} else {
+		rw.WithHeader("Content-Type", "text/html")
 	}
 }
 
