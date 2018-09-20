@@ -1,3 +1,6 @@
+//
+// the package provide a simple clean http route on server side
+//
 package httprouter
 
 import (
