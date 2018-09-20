@@ -32,44 +32,6 @@ router.Tries = []string{httprooter.Api}
 router.DocRoot = "/srv/http/test"
 
 // config api
-var userList HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, _ *helper.P) {
-    page := req.FormInt("page")
-    pageSize := req.FormatInt("page_size")
-    w.WriteJson(logic.UserList(page, pageSize))
-}
-
-var user HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request, p *helper.P) {
-    w.WriteJson(logic.User(p.Get("user_id")))
-}
-
-var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, _ *helpers.P) {
-    params := map[string]interface{}{
-        "name": req.FormValue("name"),
-        "account": req.FormValue("account"),
-        "extra": req.FormMap("extra"),
-    }
-    if err := logic.CreateUser(params); err != nil {
-        panic(err)
-    }
-    w.WriteString("创建成功")
-}
-
-var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request, p *helpers.P) {
-    params := map[string]interface{}{
-        "name": req.FormValue("name"),
-        "account": req.FormValue("account"),
-        "extra": req.FormMap("extra"),
-    }
-    if err := logic.UpdateUser(p.Get("user_id"), params); err != nil {
-        panic(err)
-    }
-
-    w.WriteString("更新成功")
-}
-
-var hello HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request, _ *helper.P) {
-    w.WriteString("hello world!!!")
-}
 
 router.Group("/api", []Middleware{}, func(router *Router) {
     router.OnGet("/users", usersList)
@@ -82,7 +44,45 @@ router.Group("/api", []Middleware{}, func(router *Router) {
 })
 
 router.OnGet("/hello-world", hello)
-
 log.Fatal(http.ListenAndServe(":8080", router))
+
+var userList HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
+    page := req.FormInt("page")
+    pageSize := req.FormatInt("page_size")
+    w.WriteJson(logic.UserList(page, pageSize))
+}
+
+var user HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
+    w.WriteJson(logic.User(p.Get("user_id")))
+}
+
+var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
+    params := map[string]interface{}{
+        "name": req.FormValue("name"),
+        "account": req.FormValue("account"),
+        "extra": req.FormMap("extra"),
+    }
+    if err := logic.CreateUser(params); err != nil {
+        panic(err)
+    }
+    w.WriteString("创建成功")
+}
+
+var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
+    params := map[string]interface{}{
+        "name": req.FormValue("name"),
+        "account": req.FormValue("account"),
+        "extra": req.FormMap("extra"),
+    }
+    if err := logic.UpdateUser(req.Bag.Get("user_id"), params); err != nil {
+        panic(err)
+    }
+
+    w.WriteString("更新成功")
+}
+
+var hello HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request) {
+    w.WriteString("hello world!!!")
+}
 
 ```
