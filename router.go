@@ -84,11 +84,11 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			router.OnPanic(err)
-		}
-	}()
+	// defer func() {
+	// 	if err := recover(); err != nil {
+	// 		router.OnPanic(err)
+	// 	}
+	// }()
 	r := NewResponseWriter(w)
 	defer func() {
 		log.Printf("%s\t%s\t%v\t%d\t%s", req.Method, req.URL.Path, req.Proto, r.StatusCode, req.RemoteAddr)
