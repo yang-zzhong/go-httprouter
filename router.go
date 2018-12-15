@@ -19,7 +19,7 @@ const (
 type HttpHandler func(*ResponseWriter, *Request)
 
 // router as file server, when output file, execute the callback. here is the type
-type onFileHandler func(*ResponseWriter, string) bool
+type onFileHandler func(*ResponseWriter, *http.Request, string) bool
 
 // group call type
 type GroupCall func(router *Router)
@@ -31,16 +31,17 @@ type BeforeExecute func(*ResponseWriter, *Request) bool
 type onPanic func(interface{})
 
 type Router struct {
-	Tries      []string
-	DocRoot    string
-	EntryFile  string
-	On404      HttpHandler
-	BeforeApi  BeforeExecute
-	BeforeFile onFileHandler
-	OnPanic    onPanic
-	configs    []config
-	ms         []Middleware
-	prefix     string
+	Tries           []string
+	DocRoot         string
+	EntryFile       string
+	On404           HttpHandler
+	BeforeApi       BeforeExecute
+	BeforePathFile  onFileHandler
+	BeforeEntryFile onFileHandler
+	OnPanic         onPanic
+	configs         []config
+	ms              []Middleware
+	prefix          string
 }
 
 type config struct {
@@ -55,7 +56,7 @@ func onNotFound(w *ResponseWriter, req *Request) {
 	w.String("not found")
 }
 
-func beforeFile(_ *ResponseWriter, _ string) bool {
+func beforeFile(_ *ResponseWriter, _ *http.Request, _ string) bool {
 	return true
 }
 
@@ -75,7 +76,8 @@ func NewRouter() *Router {
 	router.ms = []Middleware{}
 	router.prefix = ""
 	router.On404 = onNotFound
-	router.BeforeFile = beforeFile
+	router.BeforePathFile = beforeFile
+	router.BeforeEntryFile = beforeFile
 	return router
 }
 
@@ -84,11 +86,6 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		router.OnPanic(err)
-	// 	}
-	// }()
 	r := NewResponseWriter(w)
 	defer func() {
 		log.Printf("%s\t%s\t%v\t%d\t%s", req.Method, req.URL.Path, req.Proto, r.StatusCode, req.RemoteAddr)
@@ -160,14 +157,14 @@ func (router *Router) tryApi(r *ResponseWriter, req *http.Request) bool {
 }
 
 func (router *Router) tryEntryFile(r *ResponseWriter, req *http.Request) bool {
-	return router.tryFile(r, router.EntryFile)
+	return router.tryFile(r, req, router.EntryFile, router.BeforeEntryFile)
 }
 
 func (router *Router) tryPathFile(r *ResponseWriter, req *http.Request) bool {
-	return router.tryFile(r, req.URL.Path)
+	return router.tryFile(r, req, req.URL.Path, router.BeforePathFile)
 }
 
-func (router *Router) tryFile(r *ResponseWriter, file string) bool {
+func (router *Router) tryFile(r *ResponseWriter, req *http.Request, file string, beforeFile onFileHandler) bool {
 	pathfile := Join(router.DocRoot, file)
 	if stat, err := os.Stat(pathfile); err != nil {
 		if os.IsNotExist(err) {
@@ -179,7 +176,7 @@ func (router *Router) tryFile(r *ResponseWriter, file string) bool {
 		return false
 	}
 	r.WithStatusCode(200)
-	if router.BeforeFile(r, pathfile) {
+	if beforeFile(r, req, pathfile) {
 		r.WriteFile(pathfile)
 	}
 	return true
