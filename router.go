@@ -218,8 +218,8 @@ func (router *Router) OnConnect(path string, h HttpHandler) {
 }
 
 // on option uri
-func (router *Router) OnOptions(path string, h HttpHandler) {
-	router.Options(path, h)
+func (router *Router) OnOption(path string, h HttpHandler) {
+	router.Option(path, h)
 }
 
 // on trace uri
@@ -253,7 +253,7 @@ func (router *Router) Patch(path string, h HttpHandler) {
 }
 
 // legacy on options uri, abandon future
-func (router *Router) Options(path string, h HttpHandler) {
+func (router *Router) Option(path string, h HttpHandler) {
 	router.Handle(http.MethodOptions, path, h)
 }
 

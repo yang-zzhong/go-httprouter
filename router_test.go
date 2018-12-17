@@ -67,14 +67,14 @@ var afterMiddleware2Exec bool
 var withMiddlewareExec bool
 var params bool
 
-func _beforeFile(_ *ResponseWriter, _ string) bool {
+func _beforeFile(_ *ResponseWriter, _ *http.Request, _ string) bool {
 	log.Print("before file")
 	return true
 }
 
 func init() {
 	router = NewRouter()
-	router.BeforeFile = _beforeFile
+	router.BeforeEntryFile = _beforeFile
 
 	helloWorldExec = false
 	apiHelloWorldExec = false
