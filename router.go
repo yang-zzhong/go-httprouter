@@ -3,6 +3,7 @@ package httprouter
 
 import (
 	helper "github.com/yang-zzhong/go-helpers"
+	"runtime/debug"
 	"log"
 	"net/http"
 	"os"
@@ -28,7 +29,7 @@ type GroupCall func(router *Router)
 type BeforeExecute func(*ResponseWriter, *Request) bool
 
 // any panic will cause the callback execute
-type onPanic func(interface{})
+type onPanic func(interface{}, *ResponseWriter, *http.Request)
 
 type Router struct {
 	Tries           []string
@@ -68,7 +69,11 @@ func beforeApi(_ *ResponseWriter, _ *Request) bool {
 func NewRouter() *Router {
 	router := new(Router)
 	router.Tries = []string{Api, PathFile, EntryFile}
-	router.OnPanic = func(info interface{}) { log.Print(info) }
+	router.OnPanic = func(info interface{}, w *ResponseWriter, req *http.Request) {
+		w.WithStatusCode(500)
+		w.String("Server Unknown Error")
+		debug.PrintStack()
+	}
 	router.DocRoot = "."
 	router.EntryFile = "index.html"
 	router.BeforeApi = beforeApi
@@ -93,6 +98,11 @@ func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 			panic(err)
 		}
 	}()
+	defer func() {
+		if e := recover(); e != nil {
+			router.OnPanic(e, r, req)
+		}
+	}()
 	if req.Method == http.MethodGet {
 		router.try(r, req)
 		return
@@ -110,12 +120,12 @@ func (router *Router) try(r *ResponseWriter, req *http.Request) {
 			if router.tryApi(r, req) {
 				return
 			}
-		case "entryfile":
-			if router.tryEntryFile(r, req) {
-				return
-			}
 		case "pathfile":
 			if router.tryPathFile(r, req) {
+				return
+			}
+		case "entryfile":
+			if router.tryEntryFile(r, req) {
 				return
 			}
 		}
