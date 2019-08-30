@@ -72,6 +72,7 @@ func NewRouter() *Router {
 	router.OnPanic = func(info interface{}, w *ResponseWriter, req *http.Request) {
 		w.WithStatusCode(500)
 		w.String("Server Unknown Error")
+		log.Println(info)
 		debug.PrintStack()
 	}
 	router.DocRoot = "."
@@ -167,7 +168,7 @@ func (router *Router) tryApi(r *ResponseWriter, req *http.Request) bool {
 }
 
 func (router *Router) tryEntryFile(r *ResponseWriter, req *http.Request) bool {
-	return router.tryFile(r, req, router.EntryFile, router.BeforeEntryFile)
+	return router.tryFile(r, req, Join(req.URL.Path, router.EntryFile), router.BeforeEntryFile)
 }
 
 func (router *Router) tryPathFile(r *ResponseWriter, req *http.Request) bool {
