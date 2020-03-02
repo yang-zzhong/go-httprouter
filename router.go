@@ -3,11 +3,10 @@ package httprouter
 
 import (
 	helper "github.com/yang-zzhong/go-helpers"
-	"runtime/debug"
-	"log"
 	"net/http"
 	"os"
 	. "path"
+	"runtime/debug"
 )
 
 const (
@@ -72,7 +71,6 @@ func NewRouter() *Router {
 	router.OnPanic = func(info interface{}, w *ResponseWriter, req *http.Request) {
 		w.WithStatusCode(500)
 		w.String("Server Unknown Error")
-		log.Println(info)
 		debug.PrintStack()
 	}
 	router.DocRoot = "."
@@ -91,10 +89,9 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	router.HandleRequest(w, req)
 }
 
-func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
+func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) *ResponseWriter {
 	r := NewResponseWriter(w)
 	defer func() {
-		log.Printf("%s\t%s\t%v\t%d\t%s", req.Method, req.URL.Path, req.Proto, r.StatusCode, req.RemoteAddr)
 		if err := r.Flush(req); err != nil {
 			panic(err)
 		}
@@ -106,12 +103,13 @@ func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	}()
 	if req.Method == http.MethodGet {
 		router.try(r, req)
-		return
+		return r
 	}
 	if router.tryApi(r, req) {
-		return
+		return r
 	}
 	router.On404(r, &Request{helper.NewP(), req})
+	return r
 }
 
 func (router *Router) try(r *ResponseWriter, req *http.Request) {
