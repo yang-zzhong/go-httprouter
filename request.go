@@ -13,7 +13,9 @@ type Bagt struct {
 }
 
 func NewBagt() *Bagt {
-	return &Bagt{make(map[string]interface{})}
+	b := new(Bagt)
+	b.body = make(map[string]interface{})
+	return b
 }
 
 func (p *Bagt) Set(k string, v interface{}) {

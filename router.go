@@ -2,6 +2,7 @@
 package httprouter
 
 import (
+	restfulpath "github.com/yang-zzhong/go-restfulpath"
 	"net/http"
 	"os"
 	. "path"
@@ -98,7 +99,7 @@ func (router *Router) try(r *Response, req *http.Request) {
 func (router *Router) tryApi(r *Response, req *http.Request) bool {
 	methodNotAllowed := false
 	for _, conf := range router.configs {
-		matched, p := router.Match(conf.method, conf.path, req)
+		matched, params := restfulpath.NewPath(conf.path).Match(req.URL.Path)
 		if !matched {
 			continue
 		}
@@ -106,7 +107,11 @@ func (router *Router) tryApi(r *Response, req *http.Request) bool {
 			methodNotAllowed = true
 			continue
 		}
-		wreq := &Request{p, req}
+		bag := NewBagt()
+		for k, v := range params {
+			bag.Set(k, v)
+		}
+		wreq := &Request{bag, req}
 		for _, mid := range conf.ms {
 			if !mid.Before(r, wreq) {
 				return true
@@ -149,11 +154,6 @@ func (router *Router) tryFile(r *Response, req *http.Request, file string, befor
 		r.WithFile(pathfile)
 	}
 	return true
-}
-
-func (router *Router) Match(method string, path string, req *http.Request) (m bool, p *Bagt) {
-	m, p = newPath(path).match(req.URL.Path)
-	return
 }
 
 // on get uri
