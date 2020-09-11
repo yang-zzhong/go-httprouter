@@ -7,6 +7,7 @@ import (
 	. "testing"
 )
 
+// implement a io.ResponseWriter
 type RW struct {
 	Code int
 }
@@ -29,45 +30,49 @@ func getWriter() http.ResponseWriter {
 	return &RW{200}
 }
 
-type middleware1 struct{}
+// middleware 1 for test
+type mw1 struct{}
 
-func (mid *middleware1) Before(_ *ResponseWriter, _ *Request) bool {
+func (mid *mw1) Before(_ *Response, _ *Request) bool {
 	log.Print("middle 1 before")
 	beforeMiddleware1Exec = true
 	return true
 }
 
-func (mid *middleware1) After(_ *ResponseWriter, _ *Request) bool {
+func (mid *mw1) After(_ *Response, _ *Request) bool {
 	log.Print("middle 1 after")
 	afterMiddleware1Exec = true
 	return true
 }
 
-type middleware2 struct{}
+// middleware 2 for test
+type mw2 struct{}
 
-func (mid *middleware2) Before(_ *ResponseWriter, _ *Request) bool {
+func (mid *mw2) Before(_ *Response, _ *Request) bool {
 	log.Print("middle 2 before")
 	beforeMiddleware2Exec = true
 	return true
 }
 
-func (mid *middleware2) After(_ *ResponseWriter, _ *Request) bool {
+func (mid *mw2) After(_ *Response, _ *Request) bool {
 	log.Print("middle 2 after")
 	afterMiddleware2Exec = true
 	return true
 }
 
-var router *Router
-var helloWorldExec bool
-var apiHelloWorldExec bool
-var beforeMiddleware1Exec bool
-var afterMiddleware1Exec bool
-var beforeMiddleware2Exec bool
-var afterMiddleware2Exec bool
-var withMiddlewareExec bool
-var params bool
+var (
+	router                *Router
+	helloWorldExec        bool
+	apiHelloWorldExec     bool
+	beforeMiddleware1Exec bool
+	afterMiddleware1Exec  bool
+	beforeMiddleware2Exec bool
+	afterMiddleware2Exec  bool
+	withMiddlewareExec    bool
+	params                bool
+)
 
-func _beforeFile(_ *ResponseWriter, _ *http.Request, _ string) bool {
+func _beforeFile(_ *Response, _ *http.Request, _ string) bool {
 	log.Print("before file")
 	return true
 }
@@ -84,22 +89,22 @@ func init() {
 	afterMiddleware2Exec = false
 	withMiddlewareExec = false
 	params = false
-	router.OnGet("/hello-world", func(w *ResponseWriter, req *Request) {
+	router.OnGet("/hello-world", func(w *Response, req *Request) {
 		helloWorldExec = true
 	})
-	router.Group("/api", []Middleware{}, func(router *Router) {
-		router.Get("/hello-world", func(w *ResponseWriter, req *Request) {
+	router.Group("/api", []Mw{}, func(router *Router) {
+		router.Get("/hello-world", func(w *Response, req *Request) {
 			apiHelloWorldExec = true
 		})
 	})
-	router.OnGet("/users/:name", func(w *ResponseWriter, req *Request) {
+	router.OnGet("/users/:name", func(w *Response, req *Request) {
 		if req.Bag.Get("name") == "young" {
 			params = true
 		}
 	})
-	router.Group("", []Middleware{&middleware1{}}, func(router *Router) {
-		router.Group("", []Middleware{&middleware2{}}, func(router *Router) {
-			router.OnGet("/middleware", func(w *ResponseWriter, req *Request) {
+	router.Group("", []Mw{&mw1{}}, func(router *Router) {
+		router.Group("", []Mw{&mw2{}}, func(router *Router) {
+			router.OnGet("/middleware", func(w *Response, req *Request) {
 				withMiddlewareExec = true
 			})
 		})
@@ -141,7 +146,6 @@ func TestRoute(t *T) {
 	if writer.(*RW).Code != 404 {
 		t.Error("not found fail")
 	}
-
 	router.ServeHTTP(writer, getRequest("POST", "/hello-world"))
 	if writer.(*RW).Code != 405 {
 		t.Error("not allowed fail")

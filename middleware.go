@@ -1,12 +1,12 @@
 package httprouter
 
-type Middleware interface {
-	Before(m *ResponseWriter, req *Request) bool
-	After(m *ResponseWriter, req *Request) bool
+type Mw interface {
+	Before(m *Response, req *Request) bool
+	After(m *Response, req *Request) bool
 }
 
-func mergeMiddleware(m1, m2 []Middleware) []Middleware {
-	result := []Middleware{}
+func mergeMiddleware(m1, m2 []Mw) []Mw {
+	result := []Mw{}
 	for _, mid := range m1 {
 		result = append(result, mid)
 	}

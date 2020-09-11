@@ -1,61 +1,83 @@
 package httprouter
 
 import (
-	helpers "github.com/yang-zzhong/go-helpers"
-	"log"
+	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
+type Bagt struct {
+	body map[string]interface{}
+}
+
+func NewBagt() *Bagt {
+	return &Bagt{make(map[string]interface{})}
+}
+
+func (p *Bagt) Set(k string, v interface{}) {
+	p.body[k] = v
+}
+
+func (p *Bagt) Get(k string) interface{} {
+	return p.body[k]
+}
+
+func (p *Bagt) Del(k string) {
+	if p.Exist(k) {
+		delete(p.body, k)
+	}
+}
+
+func (p *Bagt) Each(handle func(k string, v interface{}) bool) bool {
+	for k, v := range p.body {
+		if !handle(k, v) {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *Bagt) Exist(k string) bool {
+	_, ok := p.body[k]
+	return ok
+}
+
 // wrap http.Request, and provide some useful functions
 type Request struct {
-	Bag *helpers.P
+	Bag *Bagt
 	*http.Request
 }
 
 // read form field as int64, if you need other int type, use type convert
-func (req *Request) FormInt(fieldName string) int64 {
-	val := req.FormValue(fieldName)
+func (req *Request) FormInt(fieldname string) (r int64, e error) {
+	val := req.FormValue(fieldname)
 	if val == "" {
-		return 0
+		return 0, errors.New("field not found")
 	}
-	var result int64
-	var err error
-	if result, err = strconv.ParseInt(val, 10, 64); err != nil {
-		return 0
-	}
-	return result
+	r, e = strconv.ParseInt(val, 10, 64)
+	return
 }
 
 // read form field as uint64, if you need other uint type, use type convert
-func (req *Request) FormUint(fieldName string) uint64 {
-	val := req.FormValue(fieldName)
+func (req *Request) FormUint(fieldname string) (r uint64, e error) {
+	val := req.FormValue(fieldname)
 	if val == "" {
-		return 0
+		return 0, errors.New("field not found")
 	}
-	var result uint64
-	var err error
-	if result, err = strconv.ParseUint(val, 10, 64); err != nil {
-		return 0
-	}
-
-	return result
+	r, e = strconv.ParseUint(val, 10, 64)
+	return
 }
 
 // read form field as float, if you need other float type, use type convert
-func (req *Request) FormFloat(fieldName string) float64 {
-	val := req.FormValue(fieldName)
+func (req *Request) FormFloat(fieldname string) (r float64, e error) {
+	val := req.FormValue(fieldname)
 	if val == "" {
-		return 0.0
+		return 0.0, errors.New("field not found")
 	}
-	var result float64
-	var err error
-	if result, err = strconv.ParseFloat(val, 64); err != nil {
-		return 0.0
-	}
-	return result
+	r, e = strconv.ParseFloat(val, 64)
+	return
 }
 
 // read form field as bool, "false", 0, "" will be recognised as false, others true
@@ -66,23 +88,19 @@ func (req *Request) FormBool(fieldName string) bool {
 }
 
 // read form field as string slice, key[\d+] will be recognised item
-func (req *Request) FormSlice(fieldName string) []string {
-	result := strings.Split(req.FormValue(fieldName), ",")
+func (req *Request) FormSlice(fieldname string) []string {
+	r := strings.Split(req.FormValue(fieldname), ",")
 	req.ParseForm()
 	for key, val := range req.Form {
 		var matched bool
-		var err error
-		if matched, err = regexp.MatchString("^"+fieldName+"\\[\\d*\\]$", key); err != nil {
-			log.Println(err)
-			continue
-		}
+		matched, _ = regexp.MatchString("^"+fieldname+"\\[\\d*\\]$", key)
 		if !matched {
 			continue
 		}
-		result = append(result, val...)
+		r = append(r, val...)
 	}
 	res := []string{}
-	for _, val := range result {
+	for _, val := range r {
 		if val != "" {
 			res = append(res, val)
 		}
@@ -92,20 +110,13 @@ func (req *Request) FormSlice(fieldName string) []string {
 }
 
 // read form field as string slice, key[\w+] will be recognised item
-func (req *Request) FormMap(fieldName string) map[string]string {
+func (req *Request) FormMap(fieldname string) map[string]string {
 	result := make(map[string]string)
-	var err error
 	var field string
 	var reg *regexp.Regexp
 	var keyReg *regexp.Regexp
-	if reg, err = regexp.Compile("^" + fieldName + "\\[\\w+\\]$"); err != nil {
-		log.Println(err)
-		return result
-	}
-	if keyReg, err = regexp.Compile("\\[\\w+\\]"); err != nil {
-		log.Println(err)
-		return result
-	}
+	reg, _ = regexp.Compile("^" + fieldname + "\\[\\w+\\]$")
+	keyReg, _ = regexp.Compile("\\[\\w+\\]")
 	req.ParseForm()
 	for key, val := range req.Form {
 		field = keyReg.FindString(reg.FindString(key))

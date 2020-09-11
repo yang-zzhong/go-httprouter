@@ -2,196 +2,156 @@
 package httprouter
 
 import (
-	helper "github.com/yang-zzhong/go-helpers"
 	"net/http"
 	"os"
 	. "path"
-	"runtime/debug"
 )
 
 const (
-	Api       = "api"
-	PathFile  = "pathfile"
-	EntryFile = "entryfile"
+	API = iota
+	PATHFILE
+	ENTRYFILE
 )
 
 // http handler type
-type HttpHandler func(*ResponseWriter, *Request)
+type HttpHandler func(*Response, *Request)
 
 // router as file server, when output file, execute the callback. here is the type
-type onFileHandler func(*ResponseWriter, *http.Request, string) bool
+type onFileHandler func(*Response, *http.Request, string) bool
 
 // group call type
 type GroupCall func(router *Router)
 
 // when uri match, the callback will be executed. warning that, when different method, uri possibly match many times
-type BeforeExecute func(*ResponseWriter, *Request) bool
-
-// any panic will cause the callback execute
-type onPanic func(interface{}, *ResponseWriter, *http.Request)
+type BeforeExecute func(http.ResponseWriter, *http.Request) bool
 
 type Router struct {
-	Tries           []string
+	Tries           []int
 	DocRoot         string
 	EntryFile       string
-	On404           HttpHandler
-	BeforeApi       BeforeExecute
 	BeforePathFile  onFileHandler
 	BeforeEntryFile onFileHandler
-	OnPanic         onPanic
 	configs         []config
-	ms              []Middleware
+	ms              []Mw
 	prefix          string
 }
 
 type config struct {
 	method string
 	path   string
-	ms     []Middleware
+	ms     []Mw
 	call   HttpHandler
 }
 
-func onNotFound(w *ResponseWriter, req *Request) {
-	w.WithStatusCode(http.StatusNotFound)
-	w.String("not found")
-}
-
-func beforeFile(_ *ResponseWriter, _ *http.Request, _ string) bool {
-	return true
-}
-
-func beforeApi(_ *ResponseWriter, _ *Request) bool {
+func beforeFile(_ *Response, _ *http.Request, _ string) bool {
 	return true
 }
 
 // new router
 func NewRouter() *Router {
 	router := new(Router)
-	router.Tries = []string{Api, PathFile, EntryFile}
-	router.OnPanic = func(info interface{}, w *ResponseWriter, req *http.Request) {
-		w.WithStatusCode(500)
-		w.String("Server Unknown Error")
-		debug.PrintStack()
-	}
+	router.Tries = []int{API, PATHFILE, ENTRYFILE}
 	router.DocRoot = "."
 	router.EntryFile = "index.html"
-	router.BeforeApi = beforeApi
 	router.configs = []config{}
-	router.ms = []Middleware{}
+	router.ms = []Mw{}
 	router.prefix = ""
-	router.On404 = onNotFound
 	router.BeforePathFile = beforeFile
 	router.BeforeEntryFile = beforeFile
 	return router
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	router.HandleRequest(w, req)
+	r := router.HandleRequest(w, req)
+	r.Flush(req)
 }
 
-func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) *ResponseWriter {
-	r := NewResponseWriter(w)
-	defer func() {
-		if err := r.Flush(req); err != nil {
-			panic(err)
-		}
-	}()
-	defer func() {
-		if e := recover(); e != nil {
-			router.OnPanic(e, r, req)
-		}
-	}()
+func (router *Router) HandleRequest(w http.ResponseWriter, req *http.Request) *Response {
+	r := NewResponse(w)
 	if req.Method == http.MethodGet {
 		router.try(r, req)
-		return r
+	} else {
+		router.tryApi(r, req)
 	}
-	if router.tryApi(r, req) {
-		return r
-	}
-	router.On404(r, &Request{helper.NewP(), req})
 	return r
 }
 
-func (router *Router) try(r *ResponseWriter, req *http.Request) {
+func (router *Router) try(r *Response, req *http.Request) {
 	for _, try := range router.Tries {
 		switch try {
-		case "api":
+		case API:
 			if router.tryApi(r, req) {
 				return
 			}
-		case "pathfile":
+		case PATHFILE:
 			if router.tryPathFile(r, req) {
 				return
 			}
-		case "entryfile":
+		case ENTRYFILE:
 			if router.tryEntryFile(r, req) {
 				return
 			}
 		}
 	}
-	router.On404(r, &Request{helper.NewP(), req})
 }
 
-func (router *Router) tryApi(r *ResponseWriter, req *http.Request) bool {
+func (router *Router) tryApi(r *Response, req *http.Request) bool {
 	methodNotAllowed := false
 	for _, conf := range router.configs {
-		matched, params := router.Match(conf.method, conf.path, req)
+		matched, p := router.Match(conf.method, conf.path, req)
 		if !matched {
 			continue
-		}
-		req := &Request{params, req}
-		if !router.BeforeApi(r, req) {
-			return true
 		}
 		if req.Method != conf.method {
 			methodNotAllowed = true
 			continue
 		}
+		wreq := &Request{p, req}
 		for _, mid := range conf.ms {
-			if !mid.Before(r, req) {
+			if !mid.Before(r, wreq) {
 				return true
 			}
-			defer mid.After(r, req)
+			defer mid.After(r, wreq)
 		}
-		conf.call(r, req)
+		conf.call(r, wreq)
 
 		return true
 	}
 	if methodNotAllowed {
-		r.WithStatusCode(http.StatusMethodNotAllowed)
+		r.WithStatus(http.StatusMethodNotAllowed)
 		return true
 	}
 
 	return false
 }
 
-func (router *Router) tryEntryFile(r *ResponseWriter, req *http.Request) bool {
+func (router *Router) tryEntryFile(r *Response, req *http.Request) bool {
 	return router.tryFile(r, req, router.EntryFile, router.BeforeEntryFile)
 }
 
-func (router *Router) tryPathFile(r *ResponseWriter, req *http.Request) bool {
+func (router *Router) tryPathFile(r *Response, req *http.Request) bool {
 	return router.tryFile(r, req, req.URL.Path, router.BeforePathFile)
 }
 
-func (router *Router) tryFile(r *ResponseWriter, req *http.Request, file string, beforeFile onFileHandler) bool {
+func (router *Router) tryFile(r *Response, req *http.Request, file string, beforeFile onFileHandler) bool {
 	pathfile := Join(router.DocRoot, file)
 	if stat, err := os.Stat(pathfile); err != nil {
 		if os.IsNotExist(err) {
-			r.WithStatusCode(404).String("File Not Found")
+			r.WithStatus(404).WithString("File Not Found")
 			return false
 		}
 	} else if stat.IsDir() {
-		r.WithStatusCode(404).String("File Not Found")
+		r.WithStatus(404).WithString("File Not Found")
 		return false
 	}
-	r.WithStatusCode(200)
+	r.WithStatus(200)
 	if beforeFile(r, req, pathfile) {
-		r.WriteFile(pathfile)
+		r.WithFile(pathfile)
 	}
 	return true
 }
 
-func (router *Router) Match(method string, path string, req *http.Request) (m bool, p *helper.P) {
+func (router *Router) Match(method string, path string, req *http.Request) (m bool, p *Bagt) {
 	m, p = newPath(path).match(req.URL.Path)
 	return
 }
@@ -284,10 +244,10 @@ func (router *Router) Handle(method string, path string, h HttpHandler) {
 }
 
 // add prefix, middleware for a bunch of request
-func (router *Router) Group(prefix string, ms []Middleware, grp GroupCall) {
+func (router *Router) Group(prefix string, ms []Mw, grp GroupCall) {
 	router.ms = mergeMiddleware(router.ms, ms)
 	router.prefix += prefix
 	grp(router)
-	router.ms = []Middleware{}
+	router.ms = []Mw{}
 	router.prefix = ""
 }

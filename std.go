@@ -36,6 +36,6 @@ func OnConnect(path string, h HttpHandler) {
 	std.OnConnect(path, h)
 }
 
-func Group(prefix string, ms []Middleware, grp GroupCall) {
+func Group(prefix string, ms []Mw, grp GroupCall) {
 	std.Group(prefix, ms, grp)
 }

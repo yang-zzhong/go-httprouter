@@ -2,7 +2,6 @@ package httprouter
 
 import (
 	. "bytes"
-	helper "github.com/yang-zzhong/go-helpers"
 	"regexp"
 )
 
@@ -19,8 +18,8 @@ func newPath(p string) *path {
 	return pa
 }
 
-func (p *path) match(t string) (matched bool, params *helper.P) {
-	params = helper.NewP()
+func (p *path) match(t string) (matched bool, params *Bagt) {
+	params = NewBagt()
 	pa := Split(([]byte)(p.p), []byte{'/'})
 	lenpa := len(pa)
 	ta := Split(([]byte)(t), []byte{'/'})

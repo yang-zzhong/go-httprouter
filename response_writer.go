@@ -3,128 +3,106 @@ package httprouter
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 )
 
 // wrap http.ResponseWriter, provide some useful functions
-type ResponseWriter struct {
-	StatusCode int
-	writer     http.ResponseWriter
+type Response struct {
+	statusCode int
 	headers    map[string]string
-	content    []byte
+	body       io.Reader
+	writer     http.ResponseWriter
 }
 
 // new response writer
-func NewResponseWriter(w http.ResponseWriter) *ResponseWriter {
-	return &ResponseWriter{200, w, make(map[string]string), nil}
+func NewResponse(w http.ResponseWriter) *Response {
+	return &Response{200, make(map[string]string), nil, w}
 }
 
-// get http.ResponseWriter
-func (rw *ResponseWriter) UnderlyingWriter() http.ResponseWriter {
-	return rw.writer
+func (r *Response) Writer() http.ResponseWriter {
+	return r.writer
 }
 
 // set http status code
-func (rw *ResponseWriter) WithStatusCode(statusCode int) *ResponseWriter {
-	rw.StatusCode = statusCode
-	return rw
+func (r *Response) WithStatus(statusCode int) *Response {
+	r.statusCode = statusCode
+	return r
 }
 
 // get response headers you setted
-func (rw *ResponseWriter) Headers() map[string]string {
-	return rw.headers
+func (r *Response) Headers() map[string]string {
+	return r.headers
 }
 
 // get response body
-func (rw *ResponseWriter) Body() []byte {
-	return rw.content
+func (r *Response) Body() io.Reader {
+	return r.body
 }
 
 // add http header to respond, if same key assign value many times, last time will be effective
-func (rw *ResponseWriter) WithHeader(key, val string) *ResponseWriter {
-	rw.headers[key] = val
-	return rw
+func (r *Response) WithHeader(key, val string) *Response {
+	r.headers[key] = val
+	return r
 }
 
 // read content to set as body from io.Reader
-func (rw *ResponseWriter) Read(reader io.Reader) {
-	reader.Read(rw.content)
+func (r *Response) WithBody(body io.Reader) {
+	r.body = body
 }
 
-// output interface{} as json body, legacy, abundon future, use WriteJson instead
-func (rw *ResponseWriter) Json(content interface{}) {
-	rw.WithHeader("Content-Type", "text/json")
-	var err error
-	if rw.content, err = json.Marshal(content); err != nil {
-		panic(err)
+func (r *Response) WithString(content string) {
+	r.WithHeader("Content-Type", "text/plain")
+	r.body = strings.NewReader(content)
+}
+
+func (r *Response) WithFile(p string) error {
+	body, err := os.Open(p)
+	if err != nil {
+		return err
 	}
-}
-
-// output string as body, legacy, abundon future, use WriteString instead
-func (rw *ResponseWriter) String(content string) {
-	rw.WithHeader("Content-Type", "text/plain")
-	rw.content = []byte(content)
-}
-
-// output []byte
-func (rw *ResponseWriter) Write(content []byte) (int, error) {
-	rw.content = content
-	return len(rw.content), nil
-}
-
-// output interface{} as json body
-func (rw *ResponseWriter) WriteJson(content interface{}) {
-	rw.Json(content)
-}
-
-// output string as body
-func (rw *ResponseWriter) WriteString(content string) {
-	rw.String(content)
-}
-
-// output file as body
-func (rw *ResponseWriter) WriteFile(pathfile string) {
-	if content, err := ioutil.ReadFile(pathfile); err != nil {
-		panic(err)
-	} else if _, err := rw.Write(content); err != nil {
-		panic(err)
+	r.body = body
+	ct := guessContentType(p)
+	if ct != "" {
+		r.WithHeader("Content-Type", ct)
 	}
-	if contentType := guessContentType(pathfile); contentType != "" {
-		rw.WithHeader("Content-Type", contentType)
-	} else {
-		rw.WithHeader("Content-Type", "text/html")
-	}
+
+	return nil
 }
 
 // output a server error
-func (rw *ResponseWriter) InternalError(err error) {
-	rw.WithStatusCode(500).String(err.Error())
+func (r *Response) InternalError(err error) {
+	r.WithStatus(500).WithString(err.Error())
 }
 
 // output result
-func (rw *ResponseWriter) Flush(req *http.Request) error {
-	w := rw.writer
-	for key, val := range rw.headers {
+func (r *Response) Flush(req *http.Request) error {
+	w := r.writer
+	for key, val := range r.headers {
 		w.Header().Set(key, val)
 	}
-	ae := []byte(req.Header.Get("Accept-Encoding"))
-	if bytes.Index(ae, []byte("gzip")) == -1 {
-		w.WriteHeader(rw.StatusCode)
-		w.Write(rw.content)
+	if r.body == nil {
+		w.WriteHeader(r.statusCode)
 		return nil
 	}
+	ae := []byte(req.Header.Get("Accept-Encoding"))
+	if bytes.Index(ae, []byte("gzip")) != -1 {
+		w.WriteHeader(r.statusCode)
+		io.Copy(w, r.body)
+		return nil
+	}
+
 	w.Header().Set("Content-Encoding", "gzip")
-	w.WriteHeader(rw.StatusCode)
+	w.WriteHeader(r.statusCode)
+
 	var buf bytes.Buffer
 	z := gzip.NewWriter(&buf)
 	defer z.Close()
-	if _, err := z.Write(rw.content); err != nil {
-		return err
-	}
+	io.Copy(z, r.body)
 	z.Flush()
-	w.Write(buf.Bytes())
+	io.Copy(w, &buf)
+
 	return nil
 }
