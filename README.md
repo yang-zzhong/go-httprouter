@@ -6,39 +6,36 @@
 2. With a static server that support front end route
 3. Support restful params
 
-API [go-httprouter API](https://booblogger.com/yang-zhong/go-httprouter-API)
-
 ```go
 import (
     "log"
-	"logic" // user app provide
+    "logic" // user app provide
     "net/http"
-    helper "github.com/yang-zzhong/go-helpers"
-    httprouter "github.com/yang-zzhong/go-httprouter"
+    hr "github.com/yang-zzhong/go-httprouter"
 )
 
-router := httprouter.NewRouter()
+router := hr.NewRouter()
 
 //
 // config the try order, here we use the default order
 // the router will first match the api, the pathfile based on docroot, the a configed entry file based on docroot
 //
-router.Tries = []string{httprouter.Api, httprouter.PathFile, httprouter.EntryFile} 
+router.Tries = []string{hr.API, hr.PATHFILE, hr.ENTRYFILE} 
 
 // only match api
-router.Tries = []string{httprooter.Api}
+router.Tries = []string{hr.API}
 
 // config docroot
 router.DocRoot = "/srv/http/test"
 
 // config api
 
-router.Group("/api", []Middleware{}, func(router *Router) {
+router.Group("/api", []Mw{}, func(router *Router) {
     router.OnGet("/users", usersList)
     router.OnGet("/users/:user_id", user)
     router.OnPost("/users", createUser)
 
-    router.Group("", []Middleware{new(logic.Auth)}, func(router *Router) {
+    router.Group("", []Mw{new(logic.Auth)}, func(router *Router) {
         router.OnPut("/users/:user_id", updateUser)
     });
 })
@@ -46,17 +43,17 @@ router.Group("/api", []Middleware{}, func(router *Router) {
 router.OnGet("/hello-world", hello)
 log.Fatal(http.ListenAndServe(":8080", router))
 
-var userList HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
-    page := req.FormInt("page")
-    pageSize := req.FormatInt("page_size")
-    w.WriteJson(logic.UserList(page, pageSize))
+var userList HttpHandler = func(w *hr.Response, req *hr.Request) {
+    page, _ := req.FormInt("page")
+    pageSize, _ := req.FormatInt("page_size")
+    w.WithString(logic.UserList(page, pageSize).Json())
 }
 
-var user HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
-    w.WriteJson(logic.User(p.Get("user_id")))
+var user HttpHandler = func(w *hr.Response, req *hr.Request) {
+    w.WithString(logic.User(p.Get("user_id")).Json())
 }
 
-var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
+var createUser HttpHandler = func(w *hr.Response, req *hr.Request) {
     params := map[string]interface{}{
         "name": req.FormValue("name"),
         "account": req.FormValue("account"),
@@ -65,10 +62,10 @@ var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.
     if err := logic.CreateUser(params); err != nil {
         panic(err)
     }
-    w.WriteString("创建成功")
+    w.WithString("创建成功")
 }
 
-var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.Request) {
+var createUser HttpHandler = func(w *hr.Response, req *hr.Request) {
     params := map[string]interface{}{
         "name": req.FormValue("name"),
         "account": req.FormValue("account"),
@@ -78,11 +75,11 @@ var createUser HttpHandler = func(w *httprouter.ResponseWriter, req *httprouter.
         panic(err)
     }
 
-    w.WriteString("更新成功")
+    w.WithString("更新成功")
 }
 
-var hello HttpHandler = func(w *httprouter.ResponseWriter, _ *httprouter.Request) {
-    w.WriteString("hello world!!!")
+var hello HttpHandler = func(w *hr.Response, _ *hr.Request) {
+    w.WithString("hello world!!!")
 }
 
 ```
