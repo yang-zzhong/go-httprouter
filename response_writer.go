@@ -22,14 +22,12 @@ func NewResponse(w http.ResponseWriter) *Response {
 	return &Response{200, make(map[string]string), nil, w}
 }
 
-func (r *Response) Writer() http.ResponseWriter {
-	return r.writer
+func (r *Response) StatusCode() int {
+	return r.statusCode
 }
 
-// set http status code
-func (r *Response) WithStatus(statusCode int) *Response {
-	r.statusCode = statusCode
-	return r
+func (r *Response) Writer() http.ResponseWriter {
+	return r.writer
 }
 
 // get response headers you setted
@@ -40,6 +38,12 @@ func (r *Response) Headers() map[string]string {
 // get response body
 func (r *Response) Body() io.Reader {
 	return r.body
+}
+
+// set http status code
+func (r *Response) WithStatus(statusCode int) *Response {
+	r.statusCode = statusCode
+	return r
 }
 
 // add http header to respond, if same key assign value many times, last time will be effective
